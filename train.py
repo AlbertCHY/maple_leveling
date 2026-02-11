@@ -152,6 +152,9 @@ def train_model():
     # === 訓練迴圈 ===
     best_val_loss = float('inf')
     
+    # 初始化混合精度工具
+    scaler = torch.cuda.amp.GradScaler()
+
     for epoch in range(CONFIG['epochs']):
         start_time = time.time()
         model.train()
@@ -161,10 +164,14 @@ def train_model():
             images, labels = images.to(CONFIG['device']), labels.to(CONFIG['device'])
             
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+            # 使用自動混合精度
+            with torch.cuda.amp.autocast():
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             
             train_loss += loss.item() * images.size(0)
             
@@ -174,11 +181,12 @@ def train_model():
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for images, labels in val_loader:
-                images, labels = images.to(CONFIG['device']), labels.to(CONFIG['device'])
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-                val_loss += loss.item() * images.size(0)
+            with torch.cuda.amp.autocast():
+                for images, labels in val_loader:
+                    images, labels = images.to(CONFIG['device']), labels.to(CONFIG['device'])
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    val_loss += loss.item() * images.size(0)
         
         val_loss /= len(val_dataset)
         
