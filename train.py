@@ -43,8 +43,8 @@ class MapleDataset(Dataset):
         try:
             image = Image.open(img_path).convert('RGB')
         except:
-            # 容錯處理：如果讀不到圖，給一張全黑圖 (雖不完美但能防止崩潰)
-            image = Image.new('RGB', (224, 224), (0, 0, 0))
+            # 容錯處理：如果讀不到圖，給一張全白圖 (雖不完美但能防止崩潰)
+            image = Image.new('RGB', (448, 256), (255, 255, 255))
 
         # 讀取標籤 (多標籤分類)
         labels = self.df.iloc[idx, 1:].values.astype('float32')
@@ -59,24 +59,34 @@ def calculate_pos_weights(df, device):
     target_keys = CONFIG["target_keys"]
     total_samples = len(df)
     
-    # 計算每個類別的正樣本數
-    pos_counts = [df[k].sum() for k in target_keys]
+# 1. 計算正樣本數
+    pos_counts = np.array([df[k].sum() for k in target_keys])
     
-    # 基礎權重公式: Total / Positive
-    # 避免除以 0
-    weights = [total_samples / (c + 10) for c in pos_counts]
+    # 2. 計算負樣本數 (Total - Pos)
+    neg_counts = total_samples - pos_counts
     
-    # --- 人工微調區 (根據你的業務邏輯) ---
+    # 3. 使用標準公式: Neg / Pos
+    # 加上 1e-5 避免除以 0
+    weights = neg_counts / (pos_counts + 1e-5)
+    
+    # 轉成 Dictionary 方便操作
     weight_dict = dict(zip(target_keys, weights))
     
-    # 覆蓋規則
+    # 4. 人工微調 (Game Logic Intervention)
+    # 這裡的數值是基於「風險控管」而非純數學
     adjustments = {
-        'down': 20.0,  # 下跳：稍微加強
-        's':    40.0,  # 斬殺技：大幅加強
-        'g':    25.0,  # 減防：適中
-        'a':    15.0,  # 瞬移
-        'space': 1.0,  # 基礎動作
-        'f':     1.0   # 基礎動作
+        # === 高風險動作 (寧願不按，不可亂按 -> 調低) ===
+        'down':  min(weight_dict['down'] * 0.7, 15.0), # 下跳很危險，打 7 折
+        
+        # === 困難特徵 (特徵太小，怕學不到 -> 調高) ===
+        's':     weight_dict['s'] * 1.5, # 斬殺圖示太小，加權 1.5 倍
+        
+        # === 模糊特徵 (怪多怪少很主觀 -> 適度限制) ===
+        'g':     min(weight_dict['g'], 30.0), # 限制最大值，避免太神經質
+        
+        # === 基礎動作 (維持原樣或設為 1) ===
+        # 'f':     1.0,  # 攻擊通常不需要加權，因為樣本夠多
+        # 'space': 1.0   # 跳躍同上
     }
     
     final_weights = []
@@ -106,14 +116,14 @@ def train_model():
     # 影像增強 (Augmentation)
     # 注意：不要隨便用 HorizontalFlip，因為 Left/Right 是不同標籤
     train_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((256, 448)),
         transforms.ColorJitter(brightness=0.2, contrast=0.2), # 模擬不同光影
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
     
     val_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((256, 448)),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -124,14 +134,13 @@ def train_model():
     train_loader = DataLoader(train_dataset, batch_size=CONFIG['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=CONFIG['batch_size'], shuffle=False, num_workers=4, pin_memory=True)
     
-    # === 模型定義 (MobileNetV3 Small) ===
-    model = models.mobilenet_v3_small(weights='DEFAULT')
+    # === 模型定義 (Efficientnet B0) ===
+    model = models.efficientnet_b0(weights='DEFAULT')
     
     # 修改最後一層全連接層
-    # MobileNetV3 的分類器結構: classifier[3] 是最後一層 Linear
-    in_features = model.classifier[3].in_features
+    in_features = model.classifier[1].in_features
     num_classes = len(CONFIG["target_keys"])
-    model.classifier[3] = nn.Linear(in_features, num_classes)
+    model.classifier[1] = nn.Linear(in_features, num_classes)
     
     model = model.to(CONFIG['device'])
     
