@@ -76,17 +76,20 @@ def calculate_pos_weights(df, device):
     # 這裡的數值是基於「風險控管」而非純數學
     adjustments = {
         # === 高風險動作 (寧願不按，不可亂按 -> 調低) ===
-        'down':  min(weight_dict['down'] * 0.7, 15.0), # 下跳很危險，打 7 折
+        #'down':  min(weight_dict['down'] * 0.7, 15.0), # 下跳很危險，打 7 折
         
         # === 困難特徵 (特徵太小，怕學不到 -> 調高) ===
-        's':     weight_dict['s'] * 1.5, # 斬殺圖示太小，加權 1.5 倍
+        # 's':     weight_dict['s'] * 1.5, # 斬殺圖示太小，加權 1.5 倍
+        # 'space': weight_dict['space'] * 1.5,   # 跳躍同上
+        # 'down': weight_dict['down'] * 2.0,
+        # 'a':   weight_dict['a'] * 1.5
         
         # === 模糊特徵 (怪多怪少很主觀 -> 適度限制) ===
-        'g':     min(weight_dict['g'], 30.0), # 限制最大值，避免太神經質
+        # 'g':     min(weight_dict['g'], 30.0) # 限制最大值，避免太神經質
         
         # === 基礎動作 (維持原樣或設為 1) ===
         # 'f':     1.0,  # 攻擊通常不需要加權，因為樣本夠多
-        # 'space': 1.0   # 跳躍同上
+
     }
     
     final_weights = []
@@ -147,13 +150,15 @@ def train_model():
     # === Loss 與 Optimizer ===
     pos_weights = calculate_pos_weights(df, CONFIG['device'])
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weights)
-    optimizer = optim.AdamW(model.parameters(), lr=CONFIG['lr'])
+    optimizer = optim.AdamW(model.parameters(), lr=CONFIG['lr'], weight_decay=1e-3)
     
     # === 訓練迴圈 ===
+    patience = 5  # 容忍次數
+    counter = 0   # 計數器
     best_val_loss = float('inf')
     
     # 初始化混合精度工具
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.amp.GradScaler('cuda')
 
     for epoch in range(CONFIG['epochs']):
         start_time = time.time()
@@ -165,7 +170,7 @@ def train_model():
             
             optimizer.zero_grad()
             # 使用自動混合精度
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
 
@@ -181,7 +186,7 @@ def train_model():
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 for images, labels in val_loader:
                     images, labels = images.to(CONFIG['device']), labels.to(CONFIG['device'])
                     outputs = model(images)
@@ -199,6 +204,13 @@ def train_model():
             best_val_loss = val_loss
             torch.save(model.state_dict(), CONFIG['model_save_path'])
             print(f"  >>> 模型已儲存 (Val Loss: {val_loss:.4f})")
+            counter = 0 # 重置計數器
+        else:
+            counter += 1
+            print(f"  !! Val Loss 未改善 ({counter}/{patience})")
+            if counter >= patience:
+                print("早停機制觸發，停止訓練。")
+                break
             
     print("=== 訓練完成 ===")
 

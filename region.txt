@@ -1,2 +1,0 @@
-原始位置: Box(left=-8, top=-8, width=2576, height=1408)
-建議設定的 SCREEN_REGION: {'top': 22, 'left': 0, 'width': 2560, 'height': 1370}
