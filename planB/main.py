@@ -1,6 +1,7 @@
 import time
 from enum import Enum
 import numpy as np
+import random
 import keyboard
 
 # 假設這些是你已經寫好的模組 (請確保檔案都在同一目錄下)
@@ -24,19 +25,21 @@ class MapleBot:
         self.gps = MinimapParser(region=(10, 160, 270, 250)) # 替換為你的真實 region
         self.controller = HumanizedController()
         self.buff_manager = BuffManager(self.controller)
-        self.combat = CombatTargeting(skill_range=90, penetration_ratio=-0.25)
+        self.combat = CombatTargeting(skill_range=90, penetration_ratio=-2)
+        self.last_valid_gps = None # 用於記錄最後一次有效的 GPS 座標，以防止返回不合理的位置
         
         # 初始狀態：預設從上層開始清怪 (也可以寫邏輯依據 GPS 自動判斷初始狀態)
         self.state = BotState.TOP_CLEARING
         self.current_movement = None
 
         # --- GPS 常數 (請替換為你實際小地圖的數據) ---
-        self.BOUND_LEFT = 30        # 左側盡頭 X
-        self.BOUND_RIGHT = 220      # 右側盡頭 X
+        self.BOUND_LEFT = 20        # 左側盡頭 X
+        self.BOUND_RIGHT = 210      # 右側盡頭 X
         self.MID_FLOOR_Y = 100       # 中層 Y (大於這個值代表到了中層)
         self.TOP_FLOOR_Y = 100       # 上層 Y (小於這個值代表到了上層)
-        self.LOWER_FLOOR_Y = 300     # 底層 Y (掉下去了)
+        self.LOWER_FLOOR_Y = 160     # 底層 Y (掉下去了)
         self.ROPE_GPS_X = 200       # 繩子在小地圖上的 X 座標
+        self.ROPE_RESCUE_X = 210      # 落到底層後，走向繩子救援的 X 座標
 
     def update_movement(self, direction):
         """非阻塞式方向鍵控制"""
@@ -69,7 +72,8 @@ class MapleBot:
                 self.update_movement(None) # 停下腳步
                 print(f"⚔️ [{direction.upper()}] 攻擊！")
                 self.controller.tap_key('f')
-                #time.sleep(self.controller._get_gaussian_time(0.6, 0.1, 0.4))
+                time.sleep(0.225 + random.uniform(-0.025, 0.025)) # 攻擊後的短暫等待，模擬攻擊動畫
+                # time.sleep(self.controller._sleep_gaussian(0.02, 0.02, 0.4))
             else:
                 self.update_movement(direction) # 繼續走
         else:
@@ -84,24 +88,24 @@ class MapleBot:
         # print("請在 3 秒內切換視窗...")
 
         time.sleep(3) 
-        # is_paused = False
+        is_paused = False
         try:
             while True:
-                # # === 1. 緊急停止 (Solution 1) ===
-                # if keyboard.is_pressed('f12'):
-                #     print("\n[緊急停止] 使用者按下 F12")
-                #     break
+                # === 1. 緊急停止 (Solution 1) ===
+                if keyboard.is_pressed('f12'):
+                    print("\n[緊急停止] 使用者按下 F12")
+                    break
                 
-                # # === 2. 暫停開關 ===
-                # if keyboard.is_pressed('f11'):
-                #     is_paused = not is_paused
-                #     print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
-                #     self.update_movement(None)
-                #     time.sleep(0.5) # 防止連點
+                # === 2. 暫停開關 ===
+                if keyboard.is_pressed('f11'):
+                    is_paused = not is_paused
+                    print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
+                    self.update_movement(None)
+                    time.sleep(0.5) # 防止連點
 
-                # if is_paused:
-                #     time.sleep(0.1)
-                #     continue
+                if is_paused:
+                    time.sleep(0.1)
+                    continue
 
                 # ---------------------------------------------------------
                 # 1. 全局感知 (Sensor Fusion)
@@ -118,10 +122,19 @@ class MapleBot:
                     continue # 找不到 GPS (可能在過圖)，原地等待
 
                 gps_px, gps_py = gps_data['player']
+                # if self.last_valid_gps:
+                #     last_x, last_y = self.last_valid_gps
+                #     # 假設一幀之內，GPS X或Y軸移動超過 50 個單位就是雜訊 (請依據實際小地圖比例微調)
+                #     if abs(gps_px - last_x) > 50:
+                #         print(f"🛡️ [濾波器] 攔截到異常 GPS 座標: ({gps_px}, {gps_py})，舊座標: ({last_x}, {last_y})，已捨棄！")
+                #         continue # 放棄這一幀，等下一幀正常的畫面
+
+                # self.last_valid_gps = (gps_px, gps_py) # 更新合法座標
+
 
                 # ---------------------------------------------------------
                 # 2. 全局防呆與優先權中斷
-                # ---------------------------------------------------------
+                 # ---------------------------------------------------------
                 # 墜落檢查
                 if gps_py >= self.LOWER_FLOOR_Y and self.state != BotState.FALL_RECOVERY:
                     print("⚠️ 警告：意外墜落！切換至救援狀態...")
@@ -150,9 +163,10 @@ class MapleBot:
                     # 等待並確認是否落到中層
                     time.sleep(0.5) # 給予掉落時間
                     print("下跳結束: gps_py:", gps_py, "MID_FLOOR_Y:", self.MID_FLOOR_Y)
-                    if gps_py >= self.MID_FLOOR_Y:
-                        print("✅ 成功抵達中層！")
-                        self.state = BotState.MID_CLEARING
+                    # if gps_py >= self.MID_FLOOR_Y:
+                    #     print("✅ 成功抵達中層！")
+                    #     self.state = BotState.MID_CLEARING
+                    self.state = BotState.MID_CLEARING
 
                 elif self.state == BotState.MID_CLEARING:
                     # 在中層，向右清怪，目標是 BOUND_RIGHT
@@ -162,6 +176,7 @@ class MapleBot:
                         self.state = BotState.NAVIGATE_UP
 
                 elif self.state == BotState.NAVIGATE_UP:
+                    # self.update_movement(None) # 先停下來，專心找繩子
                     # 尋找繩子並往上爬
                     distance_to_rope = gps_px - self.ROPE_GPS_X
                     
@@ -176,7 +191,7 @@ class MapleBot:
                     if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
                         self.update_movement(None)
                         print("📍 對齊繩子，開始攀爬...")
-                        self.controller.climb_rope(duration=3.0)
+                        self.controller.climb_rope(duration=2.8)
                     elif distance_to_rope > 2:
                         self.update_movement('left')
                     else:
@@ -185,12 +200,30 @@ class MapleBot:
                 elif self.state == BotState.FALL_RECOVERY:
                     # 實作你的底層爬回中層邏輯
                     # 例如：固定走向某個座標，然後爬繩子
-                    print("🔄 執行底層救援... (請根據地形實作)")
-                    # 假設救援成功：
-                    # self.state = BotState.MID_CLEARING
+                    print("🔄 執行底層救援...")
+                    # self.update_movement(None) # 先停下來，專心找繩子
+                    # 尋找繩子並往上爬
+                    distance_to_rope = gps_px - self.ROPE_RESCUE_X
+                    
+                    # 判斷是否已經爬到上層
+                    if gps_py <= self.LOWER_FLOOR_Y:
+                        print("✅ 成功抵達中層！重新開始巡邏迴圈。")
+                        self.update_movement(None)
+                        self.state = BotState.NAVIGATE_UP
+                        continue
+
+                    # 導航至繩子正下方
+                    if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
+                        self.update_movement(None)
+                        print("📍 對齊繩子，開始攀爬...")
+                        self.controller.climb_rope(duration=3.0)
+                    elif distance_to_rope > 2:
+                        self.update_movement('left')
+                    else:
+                        self.update_movement('right')
 
                 # 控制迴圈頻率
-                time.sleep(0.03)
+                time.sleep(0.02)
 
         except KeyboardInterrupt:
             print("\n🛑 接收到中斷訊號，正在安全關閉系統...")

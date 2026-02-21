@@ -23,9 +23,9 @@ class CombatTargeting:
 
         # 1. 根據巡邏方向過濾怪物
         for mx, my, mw, mh in monsters_data:
-            if patrol_direction == 'right' and mx > px and abs(my-py) < 100: # 加入 Y 軸容差，避免選到上下太多的怪物
+            if patrol_direction == 'right' and mx > px and abs(my-py) < 50: # 加入 Y 軸容差，避免選到上下太多的怪物
                 valid_targets.append((mx, my, mw, mh))
-            elif patrol_direction == 'left' and mx < px and abs(my-py) < 100:
+            elif patrol_direction == 'left' and mx < px and abs(my-py) < 50:
                 valid_targets.append((mx, my, mw, mh))
 
         if not valid_targets:

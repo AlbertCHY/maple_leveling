@@ -42,11 +42,11 @@ class HumanizedController:
         self._sleep_gaussian(0.08, 0.02, 0.05) # 空中的極短延遲
         self.tap_key(teleport_key)
 
-    def cast_buffs(self, keys=['q', 'w', 'e', 'r']):
-        """模擬施放連續 Buff"""
-        for key in keys:
-            self.tap_key(key)
-            self._sleep_gaussian(0.6, 0.1, 0.4) # Buff 之間的動畫延遲，需要根據遊戲實際情況調整
+    # def cast_buffs(self, keys):
+    #     """模擬施放連續 Buff"""
+    #     for key in keys:
+    #         self.tap_key(key)
+    #         self._sleep_gaussian(0.6, 0.1, 0.4) # Buff 之間的動畫延遲，需要根據遊戲實際情況調整
             
     def start_moving(self, direction):
         """模擬按下方向鍵不放"""

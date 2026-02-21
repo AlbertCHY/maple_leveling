@@ -40,9 +40,9 @@ class BuffManager:
         # 註冊所有的 BUFF 任務
         self.tasks = [
             # 5分鐘 BUFF: 區間設為 270秒 ~ 300秒
-            BuffTask("5分鐘常規BUFF", ['q', 'w', 'e', 'r'], 270, 300, base_cast_delay=0.8),
+            BuffTask("5分鐘常規BUFF", ['q', 'w', 'e'], 270, 300, base_cast_delay=0.8),
             # 10分鐘 BUFF: 區間設為 570秒 ~ 600秒
-            BuffTask("10分鐘攻擊力BUFF", ['pageup'], 570, 600, base_cast_delay=0.8)
+            BuffTask("10分鐘攻擊力BUFF", ['6'], 570, 600, base_cast_delay=0.8)
         ]
 
     def check_and_cast(self):
@@ -56,6 +56,7 @@ class BuffManager:
         for task in self.tasks:
             if task.is_ready(current_time):
                 print(f"\n✨ [狀態切換] 暫停動作，開始施放: {task.name} ({task.keys})")
+                time.sleep(1) # 確保前一個動作完全停止
                 
                 # 依序按下技能鍵
                 for key in task.keys:

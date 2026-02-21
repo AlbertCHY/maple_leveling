@@ -36,8 +36,8 @@ class MinimapParser:
             # 放棄使用容易出錯的 area 和 moments，改用 Bounding Box (邊界框)
             bx, by, bw, bh = cv2.boundingRect(cnt)
             
-            # 條件放寬：只要寬高大於 0 且小於 20 像素，我們就認定它是黃點
-            if bw > 0 and bh > 0 and bw < 20 and bh < 20:
+            # 條件放寬：只要寬高大於 5 且小於 20 像素，我們就認定它是黃點
+            if bw > 5 and bh > 5 and bw < 20 and bh < 20:
                 # 計算中心點
                 cX = bx + (bw // 2)
                 cY = by + (bh // 2)
