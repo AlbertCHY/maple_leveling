@@ -25,8 +25,8 @@ class MapleBot:
         self.gps = MinimapParser(region=(10, 160, 270, 250)) # 替換為你的真實 region
         self.controller = HumanizedController()
         self.buff_manager = BuffManager(self.controller)
-        self.combat = CombatTargeting(skill_range=90, penetration_ratio=-2)
-        self.last_valid_gps = None # 用於記錄最後一次有效的 GPS 座標，以防止返回不合理的位置
+        self.combat = CombatTargeting(skill_range=90, penetration_ratio=-2.0)
+        # self.last_valid_gps = None # 用於記錄最後一次有效的 GPS 座標，以防止返回不合理的位置
         
         # 初始狀態：預設從上層開始清怪 (也可以寫邏輯依據 GPS 自動判斷初始狀態)
         self.state = BotState.TOP_CLEARING
@@ -38,8 +38,10 @@ class MapleBot:
         self.MID_FLOOR_Y = 100       # 中層 Y (大於這個值代表到了中層)
         self.TOP_FLOOR_Y = 100       # 上層 Y (小於這個值代表到了上層)
         self.LOWER_FLOOR_Y = 160     # 底層 Y (掉下去了)
-        self.ROPE_GPS_X = 200       # 繩子在小地圖上的 X 座標
-        self.ROPE_RESCUE_X = 210      # 落到底層後，走向繩子救援的 X 座標
+        self.ROPE_UPPER_1 = 247     # 中層上上層繩子1
+        self.ROPE_UPPER_2 = 190       # 中層上上層繩子2
+        self.ROPE_RESCUE_X = 205      # 底層上中層繩
+        self.BOUND_RIGHT_2 = 260
 
     def update_movement(self, direction):
         """非阻塞式方向鍵控制"""
@@ -82,13 +84,13 @@ class MapleBot:
         return False # 還沒抵達邊界
 
     def run(self):
-        # print("=== MaplePilot 啟動 ===")
-        # print(" [F12]: 緊急停止並退出")
-        # print(" [F11]: 暫停/恢復 AI")
-        # print("請在 3 秒內切換視窗...")
-
+        print("=== MaplePilot 啟動 ===")
+        print(" [F12]: 緊急停止並退出")
+        print(" [F11]: 暫停/恢復 AI")
+        print("請在 3 秒內切換視窗...")
         time.sleep(3) 
         is_paused = False
+
         try:
             while True:
                 # === 1. 緊急停止 (Solution 1) ===
@@ -150,7 +152,7 @@ class MapleBot:
                 # ---------------------------------------------------------
                 # 3. 狀態機核心路由 (State Machine Routing)
                 # ---------------------------------------------------------
-                print(f"當前位置: {gps_data['player']}")
+                print(f"\r當前位置: {gps_data['player']} \033[K", end="")
                 if self.state == BotState.TOP_CLEARING:
                     # 在上層，向左清怪，目標是 BOUND_LEFT
                     reached_edge = self.handle_combat_state('left', self.BOUND_LEFT, gps_px, yolo_data)
@@ -178,7 +180,7 @@ class MapleBot:
                 elif self.state == BotState.NAVIGATE_UP:
                     # self.update_movement(None) # 先停下來，專心找繩子
                     # 尋找繩子並往上爬
-                    distance_to_rope = gps_px - self.ROPE_GPS_X
+                    distance_to_rope = gps_px - self.ROPE_UPPER_2
                     
                     # 判斷是否已經爬到上層
                     if gps_py <= self.TOP_FLOOR_Y:
@@ -215,6 +217,7 @@ class MapleBot:
                     # 導航至繩子正下方
                     if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
                         self.update_movement(None)
+                        time.sleep(0.1)
                         print("📍 對齊繩子，開始攀爬...")
                         self.controller.climb_rope(duration=3.0)
                     elif distance_to_rope > 2:

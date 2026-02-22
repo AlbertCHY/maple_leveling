@@ -23,14 +23,14 @@ class CombatTargeting:
 
         # 1. 根據巡邏方向過濾怪物
         for mx, my, mw, mh in monsters_data:
-            if patrol_direction == 'right' and mx > px and abs(my-py) < 50: # 加入 Y 軸容差，避免選到上下太多的怪物
+            if patrol_direction == 'right' and mx > px and abs(my-py) < 100: # 加入 Y 軸容差，避免選到上下太多的怪物
                 valid_targets.append((mx, my, mw, mh))
-            elif patrol_direction == 'left' and mx < px and abs(my-py) < 50:
+            elif patrol_direction == 'left' and mx < px and abs(my-py) < 100:
                 valid_targets.append((mx, my, mw, mh))
 
         if not valid_targets:
             return None, False
-
+        
         # 2. 找出距離最近的怪物 (基於中心點 X 座標差距)
         # 使用 lambda 函數快速按距離排序
         closest_monster = min(valid_targets, key=lambda m: abs(m[0] - px))
@@ -42,5 +42,5 @@ class CombatTargeting:
 
         # 4. 判斷是否可以攻擊
         can_attack = distance_to_edge <= self.skill_range
-
+        # print(f"🔍 目標怪物座標: ({mx}, {my}), {'可攻擊' if can_attack else '不可攻擊'}")
         return closest_monster, can_attack
