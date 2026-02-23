@@ -31,19 +31,26 @@ class BuffTask:
         print(f"⏱️ [{self.name}] 下一次施放預計在 {delay:.1f} 秒後")
 
 class BuffManager:
-    def __init__(self, controller):
+    def __init__(self, controller, buff_setting):
         """
-        :param controller: 我們之前寫好的 HumanizedController 實例
+        :param controller: HumanizedController 實例
         """
         self.controller = controller
+        self.tasks = []
         
-        # 註冊所有的 BUFF 任務
-        self.tasks = [
-            # 5分鐘 BUFF: 區間設為 270秒 ~ 300秒
-            BuffTask("5分鐘常規BUFF", ['q', 'w', 'e'], 270, 300, base_cast_delay=0.8),
-            # 10分鐘 BUFF: 區間設為 570秒 ~ 600秒
-            BuffTask("10分鐘攻擊力BUFF", ['6'], 570, 600, base_cast_delay=0.8)
-        ]
+        for name, setting in buff_setting.items():
+            task = BuffTask(
+                name=name,
+                keys=setting["keys"],
+                window_start=setting["window_start"],
+                window_end=setting["window_end"],
+                base_cast_delay=setting["base_cast_delay"]
+            )
+            self.tasks.append(task)
+
+    @classmethod
+    def from_config(cls, controller, config):
+        return cls(controller=controller, buff_setting=config["buff"])
 
     def check_and_cast(self):
         """

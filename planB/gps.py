@@ -2,22 +2,23 @@ import cv2
 import numpy as np
 
 class MinimapParser:
-    def __init__(self, region):
-        """
-        初始化 GPS 小地圖系統
-        :param region: 小地圖在螢幕上的座標與大小 (X, Y, W, H)
-        """
-        self.region = region
-        
-        # --- ⚠️ 請把剛剛調參神器跑出來的結果貼到這裡 ---
-        self.lower_yellow = np.array([20, 100, 100])
-        self.upper_yellow = np.array([40, 255, 255])
+    def __init__(self, region, lower_yellow, upper_yellow):
+        # 初始化 GPS 小地圖系統
+        self.region = region # (x, y, width, height) 小地圖在整個遊戲畫面中的位置和大小
+        self.lower_yellow = np.array(lower_yellow) # HSV 色彩空間中黃色的下界
+        self.upper_yellow = np.array(upper_yellow) # HSV 色彩空間中黃色的上界
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(region=config["mini_map"]["region"], \
+                   lower_yellow=config["mini_map"]["lower_yellow"], \
+                   upper_yellow=config["mini_map"]["upper_yellow"])
 
     def parse(self, frame):
         """
-        解析遊戲畫面，回傳玩家在「小地圖上的絕對座標」
-        :param frame: mss 擷取並轉換為 BGR 的完整遊戲畫面 (numpy array)
-        :return: dict, 例如 {"player": (x, y)}。如果沒找到則回傳 None。
+        # 解析遊戲畫面，回傳玩家在「小地圖上的絕對座標」
+        # :param frame: mss 擷取並轉換為 BGR 的完整遊戲畫面 (numpy array)
+        # :return: dict, 例如 {"player": (x, y)}。如果沒找到則回傳 None。
         """
         x, y, w, h = self.region
         
@@ -33,10 +34,10 @@ class MinimapParser:
         
         player_pos = None
         for cnt in contours:
-            # 放棄使用容易出錯的 area 和 moments，改用 Bounding Box (邊界框)
+            # 用 Bounding Box (邊界框)
             bx, by, bw, bh = cv2.boundingRect(cnt)
             
-            # 條件放寬：只要寬高大於 5 且小於 20 像素，我們就認定它是黃點
+            # 只要寬高大於 5 且小於 20 像素，我們就認定它是黃點
             if bw > 5 and bh > 5 and bw < 20 and bh < 20:
                 # 計算中心點
                 cX = bx + (bw // 2)

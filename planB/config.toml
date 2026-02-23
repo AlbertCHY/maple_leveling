@@ -1,0 +1,20 @@
+[model] # 物件偵測模型
+path = "runs/detect/train/weights/best.pt"
+conf = 0.5
+
+[mini_map] # 小地圖相關
+region = [10, 160, 270, 250]
+lower_yellow = [20, 100, 100]
+upper_yellow = [40, 255, 255]
+
+[buff.5min] # 5分鐘BUFF
+keys = ["q", "w", "e"]
+window_start = 270
+window_end = 300
+base_cast_delay = 0.8
+
+[buff.10min] # 10分鐘BUFF
+keys = ["6"]
+window_start = 570
+window_end = 600
+base_cast_delay = 0.8

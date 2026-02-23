@@ -3,6 +3,7 @@ from enum import Enum
 import numpy as np
 import random
 import keyboard
+import tomllib
 
 # 假設這些是你已經寫好的模組 (請確保檔案都在同一目錄下)
 from vision import GamePerception
@@ -21,27 +22,29 @@ class BotState(Enum):
 class MapleBot:
     def __init__(self):
         print("🔧 系統初始化中...")
-        self.vision = GamePerception()
-        self.gps = MinimapParser(region=(10, 160, 270, 250)) # 替換為你的真實 region
+        with open("config.toml", "rb") as f:
+            self.config = tomllib.load(f)
+
+        self.vision = GamePerception.from_config(self.config)
+        self.gps = MinimapParser.from_config(self.config)
         self.controller = HumanizedController()
-        self.buff_manager = BuffManager(self.controller)
+        self.buff_manager = BuffManager.from_config(self.controller, self.config)
         self.combat = CombatTargeting(skill_range=90, penetration_ratio=-2.0)
-        # self.last_valid_gps = None # 用於記錄最後一次有效的 GPS 座標，以防止返回不合理的位置
         
         # 初始狀態：預設從上層開始清怪 (也可以寫邏輯依據 GPS 自動判斷初始狀態)
         self.state = BotState.TOP_CLEARING
         self.current_movement = None
 
-        # --- GPS 常數 (請替換為你實際小地圖的數據) ---
-        self.BOUND_LEFT = 20        # 左側盡頭 X
-        self.BOUND_RIGHT = 210      # 右側盡頭 X
+        # --- GPS 常數 ---
+        self.BOUND_LEFT = 20        # 左側上平台盡頭 X
+        self.BOUND_RIGHT = 210      # 右側中平台盡頭 X
         self.MID_FLOOR_Y = 100       # 中層 Y (大於這個值代表到了中層)
         self.TOP_FLOOR_Y = 100       # 上層 Y (小於這個值代表到了上層)
         self.LOWER_FLOOR_Y = 160     # 底層 Y (掉下去了)
-        self.ROPE_UPPER_1 = 247     # 中層上上層繩子1
-        self.ROPE_UPPER_2 = 190       # 中層上上層繩子2
-        self.ROPE_RESCUE_X = 205      # 底層上中層繩
-        self.BOUND_RIGHT_2 = 260
+        self.ROPE_UPPER_1 = 247     # 中層到上層繩子1
+        self.ROPE_UPPER_2 = 190       # 中層到上層繩子2
+        self.ROPE_RESCUE_X = 205      # 底層到中層繩子
+        self.BOUND_RIGHT_2 = 260    # 右側中平台盡頭2
 
     def update_movement(self, direction):
         """非阻塞式方向鍵控制"""
@@ -72,6 +75,8 @@ class MapleBot:
             )
             if target and in_range:
                 self.update_movement(None) # 停下腳步
+                # 待加入跳躍攻擊邏輯增加變化性
+
                 print(f"⚔️ [{direction.upper()}] 攻擊！")
                 self.controller.tap_key('f')
                 time.sleep(0.225 + random.uniform(-0.025, 0.025)) # 攻擊後的短暫等待，模擬攻擊動畫
@@ -84,10 +89,10 @@ class MapleBot:
         return False # 還沒抵達邊界
 
     def run(self):
-        print("=== MaplePilot 啟動 ===")
+        print("=== Maple Leveler 啟動 ===")
         print(" [F12]: 緊急停止並退出")
-        print(" [F11]: 暫停/恢復 AI")
-        print("請在 3 秒內切換視窗...")
+        print(" [F11]: 暫停/恢復")
+        print("請在 3 秒內切換到遊戲視窗...")
         time.sleep(3) 
         is_paused = False
 
