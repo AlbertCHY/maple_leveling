@@ -42,8 +42,8 @@ class MapleBot:
         self.TOP_FLOOR_Y = 100       # 上層 Y (小於這個值代表到了上層)
         self.LOWER_FLOOR_Y = 160     # 底層 Y (掉下去了)
         self.ROPE_UPPER_1 = 247     # 中層到上層繩子1
-        self.ROPE_UPPER_2 = 190       # 中層到上層繩子2
-        self.ROPE_RESCUE_X = 205      # 底層到中層繩子
+        self.ROPE_UPPER_2 = 195       # 中層到上層繩子2
+        self.ROPE_RESCUE_X = 210      # 底層到中層繩子
         self.BOUND_RIGHT_2 = 260    # 右側中平台盡頭2
 
     def update_movement(self, direction):
@@ -117,7 +117,7 @@ class MapleBot:
                 # ---------------------------------------------------------
                 # 1. 全局感知 (Sensor Fusion)
                 # ---------------------------------------------------------
-                frame = self.vision.sct.grab(self.vision.region)
+                frame = self.vision.sct.grab(self.config["game_screen"])
                 frame_np = np.array(frame)
                 
                 _, yolo_data, _ = self.vision.get_vision(frame_np) # 假設你把 get_vision 改成吃 frame_np
@@ -222,7 +222,6 @@ class MapleBot:
                     # 導航至繩子正下方
                     if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
                         self.update_movement(None)
-                        time.sleep(0.1)
                         print("📍 對齊繩子，開始攀爬...")
                         self.controller.climb_rope(duration=3.0)
                     elif distance_to_rope > 2:
