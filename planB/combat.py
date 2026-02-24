@@ -1,8 +1,7 @@
 class CombatTargeting:
-    def __init__(self, skill_range, foward_jump_attack_range, attack_range):
+    def __init__(self, skill_range, attack_range):
         """
         :param skill_range: 技能攻擊的距離範圍，如果怪物在這個範圍內，準備攻擊
-        :param foward_jump_attack_range: 前跳攻擊的距離範圍，如果怪物在這個範圍內，使用前跳攻擊
         :param attack_range: 普通攻擊的距離範圍，如果怪物在這個範圍內，直接攻擊
 
         """
@@ -33,25 +32,26 @@ class CombatTargeting:
         for mx, my, mw, mh in monsters_pos:
             mcx = mx + (mw // 2) # 怪物中心點 X 座標
             mcy = my + (mh // 2) # 怪物中心點 Y 座標
-            if direction == 'right' and mcx > pcx and abs(mcy - pcy) < 100: # 加入 Y 軸容差，避免選到上下太多的怪物
+            if direction == 'right' and mcx > pcx and abs(mcy - pcy) < 150: # 加入 Y 軸容差，避免選到上下太多的怪物
                 valid_targets.append((mcx, mcy))
-            elif direction == 'left' and mcx < pcx and abs(mcy - pcy) < 100:
+            elif direction == 'left' and mcx < pcx and abs(mcy - pcy) < 150:
                 valid_targets.append((mcx, mcy))
 
         if not valid_targets:
-            return False, None
-        
+            return False, False
         # 2. 找出距離最近的怪物 (基於中心點 X 座標差距)
         # 使用 lambda 函數快速按距離排序
         closest_monster = min(valid_targets, key=lambda m: abs(m[0] - pcx))
-        mx, my = closest_monster
-
+        tx, ty = closest_monster
+        print(f"玩家中心點: ({pcx}, {pcy}), 最近怪物中心點: ({tx}, {ty})\033[K", end="")
         # 3. 計算距離
-        distance_to_monster = abs(mx - pcx)
+        distance_to_monster = abs(tx - pcx)
 
         # 4. 判斷是否可以攻擊
         can_attack = distance_to_monster <= self.skill_range
-        if can_attack:
-            jump_or_not = False if distance_to_monster <= self.attack_range else True
+        if can_attack and distance_to_monster <= self.attack_range:
+            jump_or_not = False
+        else:
+            jump_or_not = True
 
         return can_attack, jump_or_not

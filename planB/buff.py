@@ -68,7 +68,7 @@ class BuffManager:
                 # 依序按下技能鍵
                 for key in task.keys:
                     self.controller.tap_key(key)
-                    self.controller.sleep_gaussian(task.base_cast_delay, 0.1, min_delay=0.7) # 等待技能動畫結束
+                    self.controller.sleep_gaussian(task.base_cast_delay, 0.1, 0.7) # 等待技能動畫結束
                 
                 # 施放完畢後，重新排程下一次的時間
                 task.schedule_next(time.time())

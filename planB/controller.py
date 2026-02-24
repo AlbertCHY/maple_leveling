@@ -24,7 +24,7 @@ class HumanizedController:
         pydirectinput.keyDown("down")
         self.sleep_gaussian(0.05, 0.01, 0.03)
         self.tap_key("space")
-        self.sleep_gaussian(0.1, 0.02, 0.05)
+        self.sleep_gaussian(0.08, 0.02, 0.05)
         pydirectinput.keyUp("down")
         self.sleep_gaussian(0.04, 0.01, 0.02)
 
@@ -33,18 +33,10 @@ class HumanizedController:
         pydirectinput.keyDown(direction)
         self.sleep_gaussian(0.05, 0.01, 0.03)
         pydirectinput.keyDown("space")
-        self.sleep_gaussian(0.1, 0.02, 0.05)
-        if random.random() > 0.5: # 隨機決定先放開哪個鍵，增加人性化
-            pydirectinput.keyUp("space")
-            self.sleep_gaussian(0.03, 0.01, 0.01)
-            pydirectinput.keyUp(direction)
-        else:
-            pydirectinput.keyUp(direction)
-            self.sleep_gaussian(0.03, 0.01, 0.01)
-            pydirectinput.keyUp("space")
+        self.sleep_gaussian(0.05, 0.02, 0.05)
+        pydirectinput.keyUp("space")
         self.sleep_gaussian(timming, 0.05, timming*0.9) # 根據 timming 參數調整攻擊按鍵的按下時間
         self.tap_key(key)
-
             
     def start_moving(self, direction):
         """模擬按下方向鍵不放"""

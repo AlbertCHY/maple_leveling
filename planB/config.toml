@@ -27,6 +27,6 @@ window_end = 600
 base_cast_delay = 0.8
 
 [combat] # 戰鬥相關
-attack_range = 20
-skill_range = 90
+attack_range = 300
+skill_range = 550
 
