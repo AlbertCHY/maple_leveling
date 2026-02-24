@@ -41,4 +41,4 @@ class GamePerception:
             elif name == 'Mobs':
                 perception_data["monsters"].append(tuple_xywh)
 
-        return frame, perception_data, results[0]
+        return perception_data

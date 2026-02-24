@@ -1,4 +1,4 @@
-[game_screen]
+[game_screen] # 遊戲畫面位置
 top = 32
 left = 0
 width = 2560
@@ -6,12 +6,13 @@ height = 1392
 
 [model] # 物件偵測模型
 path = "runs/detect/train/weights/best.pt"
-conf = 0.5
+conf = 0.5 # 信心指數
 
 [mini_map] # 小地圖相關
 region = [10, 160, 270, 250]
 lower_yellow = [20, 100, 100]
 upper_yellow = [40, 255, 255]
+
 
 [buff.5min] # 5分鐘BUFF
 keys = ["q", "w", "e"]
@@ -24,3 +25,8 @@ keys = ["6"]
 window_start = 570
 window_end = 600
 base_cast_delay = 0.8
+
+[combat] # 戰鬥相關
+attack_range = 20
+skill_range = 90
+

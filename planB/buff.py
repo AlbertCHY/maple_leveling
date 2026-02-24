@@ -63,17 +63,12 @@ class BuffManager:
         for task in self.tasks:
             if task.is_ready(current_time):
                 print(f"\n✨ [狀態切換] 暫停動作，開始施放: {task.name} ({task.keys})")
-                time.sleep(1) # 確保前一個動作完全停止
+                time.sleep(random.uniform(1, 1.2)) # 確保前一個動作完全停止
                 
                 # 依序按下技能鍵
                 for key in task.keys:
                     self.controller.tap_key(key)
-                    
-                    # 以 0.5 秒為基準，加入常態分佈的隨機波動 (標準差設為 0.1)
-                    # max(0.4, ...) 是為了確保就算隨機到極端值，也不會低於 0.4 秒，以免按太快遊戲沒判定到
-                    actual_delay = max(0.7, random.gauss(task.base_cast_delay, 0.1))
-                    print(f"施放 {key} 後等待 {actual_delay:.2f} 秒")
-                    time.sleep(actual_delay)
+                    self.controller.sleep_gaussian(task.base_cast_delay, 0.1, min_delay=0.7) # 等待技能動畫結束
                 
                 # 施放完畢後，重新排程下一次的時間
                 task.schedule_next(time.time())

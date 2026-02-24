@@ -13,11 +13,14 @@ from buff import BuffManager
 from combat import CombatTargeting
 
 class BotState(Enum):
-    TOP_CLEARING = 1
+    TOP_CLEARING_LEFT = 1
     JUMP_DOWN = 2
-    MID_CLEARING = 3
-    NAVIGATE_UP = 4
-    FALL_RECOVERY = 5
+    MID_CLEARING_RIGHT = 3
+    NAVIGATE_UP_1 = 4
+    MID_CLEARING_LEFT = 5
+    NAVIGATE_UP_2 = 6
+    TOP_CLEARING_RIGHT = 7
+    FALL_RECOVERY = 0
 
 class MapleBot:
     def __init__(self):
@@ -29,62 +32,55 @@ class MapleBot:
         self.gps = MinimapParser.from_config(self.config)
         self.controller = HumanizedController()
         self.buff_manager = BuffManager.from_config(self.controller, self.config)
-        self.combat = CombatTargeting(skill_range=90, penetration_ratio=-2.0)
+        self.combat = CombatTargeting.from_config(self.config)
         
         # 初始狀態：預設從上層開始清怪 (也可以寫邏輯依據 GPS 自動判斷初始狀態)
-        self.state = BotState.TOP_CLEARING
+        self.state = BotState.TOP_CLEARING_LEFT
         self.current_movement = None
 
         # --- GPS 常數 ---
-        self.BOUND_LEFT = 20        # 左側上平台盡頭 X
-        self.BOUND_RIGHT = 210      # 右側中平台盡頭 X
-        self.MID_FLOOR_Y = 100       # 中層 Y (大於這個值代表到了中層)
-        self.TOP_FLOOR_Y = 100       # 上層 Y (小於這個值代表到了上層)
-        self.LOWER_FLOOR_Y = 160     # 底層 Y (掉下去了)
+        self.BOUND_LEFT = 25        # 左側平台盡頭 X
+        self.BOUND_RIGHT = 260      # 右側平台盡頭
+        self.BOUND_MID_RIGHT = 210  # 右側中平台盡頭 X
+        self.MID_FLOOR_Y = 100      # 中上層 Y 分界
+        self.LOWER_FLOOR_Y = 180    # 此Y以下代表掉到最底層
         self.ROPE_UPPER_1 = 247     # 中層到上層繩子1
-        self.ROPE_UPPER_2 = 195       # 中層到上層繩子2
-        self.ROPE_RESCUE_X = 210      # 底層到中層繩子
-        self.BOUND_RIGHT_2 = 260    # 右側中平台盡頭2
+        self.ROPE_UPPER_2 = 195     # 中層到上層繩子2
+        self.ROPE_RESCUE_X = 210    # 底層到中層繩子
 
     def update_movement(self, direction):
         """非阻塞式方向鍵控制"""
-        if self.current_movement != direction:
-            if self.current_movement:
-                self.controller.stop_moving(self.current_movement)
-            if direction:
-                self.controller.start_moving(direction)
-            self.current_movement = direction
+        if self.current_movement == direction:
+            return
+        if self.current_movement:
+            self.controller.stop_moving(self.current_movement)
+        if direction:
+            self.controller.start_moving(direction)
+        self.current_movement = direction
 
-    def handle_combat_state(self, direction, bound_x, gps_px, yolo_data):
+    def handle_combat_state(self, direction, bound_x, gps_px, yolo_player, yolo_monsters):
         """
         處理清怪狀態的微觀決策
         :return: bool, 是否已經抵達邊界？
         """
-        # 1. 檢查是否抵達邊界 (巨觀)
-        if (direction == 'left' and gps_px <= bound_x) or \
-           (direction == 'right' and gps_px >= bound_x):
-            self.update_movement(None)
-            return True # 已經抵達邊界，通知主迴圈切換狀態
-
-        # 2. 戰鬥邏輯 (微觀)
-        yolo_player = yolo_data['player']
-        yolo_monsters = yolo_data['monsters']
-        if yolo_player:
-            target, in_range = self.combat.find_target_and_check_range(
-                yolo_player, yolo_monsters, direction
-            )
-            if target and in_range:
-                self.update_movement(None) # 停下腳步
-                # 待加入跳躍攻擊邏輯增加變化性
-
+        # 戰鬥邏輯：根據 GPS 和 YOLO 資料決定是否攻擊或繼續移動
+        target_in_range, jump_or_not = self.combat.find_target_and_check_range(yolo_player, yolo_monsters, direction)
+        if target_in_range:
+            self.update_movement(None) # 停下腳步
+            if jump_or_not:
+                print(f"⚔️ [{direction.upper()}] 前跳攻擊！")
+                self.controller.jump_press(direction, 'f', timming=0.2)
+                time.sleep(0.6 + random.uniform(-0.05, 0.05)) # 等待跳躍動畫結束
+            else:
                 print(f"⚔️ [{direction.upper()}] 攻擊！")
                 self.controller.tap_key('f')
-                time.sleep(0.225 + random.uniform(-0.025, 0.025)) # 攻擊後的短暫等待，模擬攻擊動畫
-                # time.sleep(self.controller._sleep_gaussian(0.02, 0.02, 0.4))
-            else:
-                self.update_movement(direction) # 繼續走
+                time.sleep(0.3 + random.uniform(-0.05, 0.05)) # 等待攻擊動畫結束
         else:
-            self.update_movement(direction) # 沒看到玩家 (可能被特效擋住)，盲走
+            self.update_movement(direction) # 繼續走
+            if (direction == 'left' and gps_px <= random.uniform(bound_x, bound_x + 5)) or \
+            (direction == 'right' and gps_px >= random.uniform(bound_x, bound_x + 5)):
+                self.update_movement(None)
+                return True # 已經抵達邊界，通知主迴圈切換狀態
             
         return False # 還沒抵達邊界
 
@@ -98,12 +94,14 @@ class MapleBot:
 
         try:
             while True:
-                # === 1. 緊急停止 (Solution 1) ===
+                # === 手動停止 ===
                 if keyboard.is_pressed('f12'):
+                    is_paused = True
                     print("\n[緊急停止] 使用者按下 F12")
+                    self.update_movement(None)
                     break
                 
-                # === 2. 暫停開關 ===
+                # === 暫停開關 ===
                 if keyboard.is_pressed('f11'):
                     is_paused = not is_paused
                     print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
@@ -115,33 +113,29 @@ class MapleBot:
                     continue
 
                 # ---------------------------------------------------------
-                # 1. 全局感知 (Sensor Fusion)
+                # 全局感知 (Sensor Fusion)
                 # ---------------------------------------------------------
                 frame = self.vision.sct.grab(self.config["game_screen"])
                 frame_np = np.array(frame)
                 
-                _, yolo_data, _ = self.vision.get_vision(frame_np) # 假設你把 get_vision 改成吃 frame_np
-                gps_data = self.gps.parse(frame_np)
-
-                if not gps_data['player']:
+                yolo_data = self.vision.get_vision(frame_np) # 傳出畫面回傳 YOLO 辨識的物件資料
+                yolo_player = yolo_data['player']
+                yolo_monsters = yolo_data['monsters']
+                if not yolo_player: # 畫面上沒找到玩家 先發呆
                     self.update_movement(None)
-                    time.sleep(0.1)
-                    continue # 找不到 GPS (可能在過圖)，原地等待
+                    time.sleep(0.02)
+                    continue
 
+                gps_data = self.gps.parse(frame_np) # 傳出畫面回傳小地圖的目標座標
+                if not gps_data['player']: # 小地圖上沒找到玩家 先發呆
+                    self.update_movement(None)
+                    time.sleep(0.02)
+                    continue
                 gps_px, gps_py = gps_data['player']
-                # if self.last_valid_gps:
-                #     last_x, last_y = self.last_valid_gps
-                #     # 假設一幀之內，GPS X或Y軸移動超過 50 個單位就是雜訊 (請依據實際小地圖比例微調)
-                #     if abs(gps_px - last_x) > 50:
-                #         print(f"🛡️ [濾波器] 攔截到異常 GPS 座標: ({gps_px}, {gps_py})，舊座標: ({last_x}, {last_y})，已捨棄！")
-                #         continue # 放棄這一幀，等下一幀正常的畫面
-
-                # self.last_valid_gps = (gps_px, gps_py) # 更新合法座標
-
 
                 # ---------------------------------------------------------
-                # 2. 全局防呆與優先權中斷
-                 # ---------------------------------------------------------
+                # 墜落檢查與BUFF檢查
+                # ---------------------------------------------------------
                 # 墜落檢查
                 if gps_py >= self.LOWER_FLOOR_Y and self.state != BotState.FALL_RECOVERY:
                     print("⚠️ 警告：意外墜落！切換至救援狀態...")
@@ -149,52 +143,49 @@ class MapleBot:
                     self.state = BotState.FALL_RECOVERY
                     continue
 
-                # BUFF 檢查 (最高優先權)
+                # BUFF 檢查
                 if self.buff_manager.check_and_cast():
                     self.update_movement(None)
                     continue # 剛放完 BUFF，跳過這幀的其餘動作
 
                 # ---------------------------------------------------------
-                # 3. 狀態機核心路由 (State Machine Routing)
+                # 狀態機核心路由 (State Machine Routing)
                 # ---------------------------------------------------------
                 print(f"\r當前位置: {gps_data['player']} \033[K", end="")
-                if self.state == BotState.TOP_CLEARING:
+
+                if self.state == BotState.TOP_CLEARING_LEFT:
                     # 在上層，向左清怪，目標是 BOUND_LEFT
-                    reached_edge = self.handle_combat_state('left', self.BOUND_LEFT, gps_px, yolo_data)
+                    reached_edge = self.handle_combat_state('left', self.BOUND_LEFT, gps_px, yolo_player, yolo_monsters)
                     if reached_edge:
                         print("🏁 到達上層左邊緣，準備下跳...")
                         self.state = BotState.JUMP_DOWN
 
                 elif self.state == BotState.JUMP_DOWN:
-                    self.controller.jump_down() # 執行 down + space
-                    # 等待並確認是否落到中層
-                    time.sleep(0.5) # 給予掉落時間
-                    print("下跳結束: gps_py:", gps_py, "MID_FLOOR_Y:", self.MID_FLOOR_Y)
-                    # if gps_py >= self.MID_FLOOR_Y:
-                    #     print("✅ 成功抵達中層！")
-                    #     self.state = BotState.MID_CLEARING
-                    self.state = BotState.MID_CLEARING
+                    if gps_py >= self.MID_FLOOR_Y:
+                        print("下跳結束: gps_py:", gps_py, "MID_FLOOR_Y:", self.MID_FLOOR_Y)
+                        self.state = BotState.MID_CLEARING_RIGHT
+                    else:
+                        self.controller.jump_down() # 執行 down + space
+                        time.sleep(0.5) # 給予掉落時間
 
-                elif self.state == BotState.MID_CLEARING:
-                    # 在中層，向右清怪，目標是 BOUND_RIGHT
-                    reached_edge = self.handle_combat_state('right', self.BOUND_RIGHT, gps_px, yolo_data)
+                elif self.state == BotState.MID_CLEARING_RIGHT:
+                    # 在中層，向右清怪，目標是 BOUND_MID_RIGHT
+                    reached_edge = self.handle_combat_state('right', self.ROPE_UPPER_1, gps_px, yolo_player, yolo_monsters)
                     if reached_edge:
-                        print("🏁 到達中層右邊緣，準備尋找繩子...")
-                        self.state = BotState.NAVIGATE_UP
+                        print("🏁 到達中層第二階段點，準備尋找繩子...")
+                        self.state = BotState.NAVIGATE_UP_1
 
-                elif self.state == BotState.NAVIGATE_UP:
-                    # self.update_movement(None) # 先停下來，專心找繩子
-                    # 尋找繩子並往上爬
-                    distance_to_rope = gps_px - self.ROPE_UPPER_2
-                    
+                elif self.state == BotState.NAVIGATE_UP_1:                
                     # 判斷是否已經爬到上層
-                    if gps_py <= self.TOP_FLOOR_Y:
-                        print("✅ 成功抵達上層！重新開始巡邏迴圈。")
-                        self.update_movement(None)
-                        self.state = BotState.TOP_CLEARING
-                        continue
+                    if gps_py <= self.MID_FLOOR_Y:
+                        print("✅ 成功抵達中層第二階段 走到最右邊。")
+                        self.update_movement("right")
+                        if gps_px >= self.BOUND_RIGHT: # 確保走到最右邊
+                            self.update_movement(None)
+                            self.state = BotState.MID_CLEARING_LEFT
 
                     # 導航至繩子正下方
+                    distance_to_rope = gps_px - self.ROPE_UPPER_1
                     if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
                         self.update_movement(None)
                         print("📍 對齊繩子，開始攀爬...")
@@ -204,26 +195,53 @@ class MapleBot:
                     else:
                         self.update_movement('right')
 
-                elif self.state == BotState.FALL_RECOVERY:
-                    # 實作你的底層爬回中層邏輯
-                    # 例如：固定走向某個座標，然後爬繩子
-                    print("🔄 執行底層救援...")
-                    # self.update_movement(None) # 先停下來，專心找繩子
-                    # 尋找繩子並往上爬
-                    distance_to_rope = gps_px - self.ROPE_RESCUE_X
-                    
+                elif self.state == BotState.MID_CLEARING_LEFT:
+                    reached_edge = self.handle_combat_state('left', self.ROPE_UPPER_2, gps_px, yolo_player, yolo_monsters)
+                    if reached_edge:
+                        print("🏁 到達中層轉上層點，準備去上層...")
+                        self.state = BotState.NAVIGATE_UP_2
+
+                elif self.state == BotState.NAVIGATE_UP_2:                 
                     # 判斷是否已經爬到上層
-                    if gps_py <= self.LOWER_FLOOR_Y:
-                        print("✅ 成功抵達中層！重新開始巡邏迴圈。")
+                    if gps_py <= self.MID_FLOOR_Y:
+                        print("✅ 成功抵達上層！ 向右清怪")
                         self.update_movement(None)
-                        self.state = BotState.NAVIGATE_UP
+                        self.state = BotState.TOP_CLEARING_RIGHT
+
+                    # 導航至繩子正下方
+                    distance_to_rope = gps_px - self.ROPE_UPPER_2
+                    if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
+                        self.update_movement(None)
+                        print("📍 對齊繩子，開始攀爬...")
+                        self.controller.climb_rope(duration=2.8)
+                    elif distance_to_rope > 2:
+                        self.update_movement('left')
+                    else:
+                        self.update_movement('right')
+
+                elif self.state == BotState.TOP_CLEARING_RIGHT:
+                    reached_edge = self.handle_combat_state('right', self.BOUND_RIGHT, gps_px, yolo_player, yolo_monsters)
+                    if reached_edge:
+                        print("🏁 到達上層右邊緣，重新開始迴圈")
+                        self.state = BotState.TOP_CLEARING_LEFT
+
+                elif self.state == BotState.FALL_RECOVERY:
+                    print("🔄 執行底層救援...")
+                    
+                    # 判斷是否已經爬回中層
+                    if gps_py <= self.LOWER_FLOOR_Y:
+                        print("✅ 成功抵達中層！回到上層繼續")
+                        self.update_movement(None)
+                        self.state = BotState.NAVIGATE_UP_2
                         continue
 
+                    # 尋找繩子並往上爬
+                    distance_to_rope = gps_px - self.ROPE_RESCUE_X
                     # 導航至繩子正下方
                     if abs(distance_to_rope) <= 2: # 允許 2 個 GPS 像素的誤差
                         self.update_movement(None)
                         print("📍 對齊繩子，開始攀爬...")
-                        self.controller.climb_rope(duration=3.0)
+                        self.controller.climb_rope(duration=2.7)
                     elif distance_to_rope > 2:
                         self.update_movement('left')
                     else:

@@ -10,8 +10,8 @@ class MinimapParser:
 
     @classmethod
     def from_config(cls, config):
-        return cls(region=config["mini_map"]["region"], \
-                   lower_yellow=config["mini_map"]["lower_yellow"], \
+        return cls(region=config["mini_map"]["region"],
+                   lower_yellow=config["mini_map"]["lower_yellow"],
                    upper_yellow=config["mini_map"]["upper_yellow"])
 
     def parse(self, frame):

@@ -1,46 +1,57 @@
 class CombatTargeting:
-    def __init__(self, skill_range, penetration_ratio):
+    def __init__(self, skill_range, foward_jump_attack_range, attack_range):
         """
-        :param skill_range: 你的主要攻擊技能 (F) 的有效射程 (像素)
-        :param penetration_ratio: 侵入係數 (0.0~1.0)，決定角色要多貼近怪物的視覺邊緣
+        :param skill_range: 技能攻擊的距離範圍，如果怪物在這個範圍內，準備攻擊
+        :param foward_jump_attack_range: 前跳攻擊的距離範圍，如果怪物在這個範圍內，使用前跳攻擊
+        :param attack_range: 普通攻擊的距離範圍，如果怪物在這個範圍內，直接攻擊
+
         """
         self.skill_range = skill_range
-        self.penetration_ratio = penetration_ratio
+        self.attack_range = attack_range
 
-    def find_target_and_check_range(self, player_pos, monsters_data, patrol_direction):
+    @classmethod
+    def from_config(cls, config):
+        return cls(config["combat"]["skill_range"], 
+                   config["combat"]["attack_range"])
+
+    def find_target_and_check_range(self, player_pos, monsters_pos, direction):
         """
         :param player_pos: 玩家座標 (x, y)
-        :param monsters_data: 怪物陣列，格式為 [(x_center, y_center, w, h), ...]
-                              (注意：需要你在感知層把 YOLO 的 w, h 也傳過來)
-        :param patrol_direction: 'right' 或 'left'
+        :param monsters_pos: 怪物陣列，格式為 [(x_center, y_center, w, h), ...]
+        :param direction: 'right' 或 'left'
         :return: (目標怪物座標, 是否在攻擊範圍內)
         """
-        if not player_pos or not monsters_data:
+        if not player_pos or not monsters_pos:
             return None, False
 
-        px, py, _, _ = player_pos
+        px, py, pw, ph = player_pos
+        pcx = px + (pw // 2) # 玩家中心點 X 座標
+        pcy = py + (ph // 2) # 玩家中心點 Y 座標
         valid_targets = []
 
         # 1. 根據巡邏方向過濾怪物
-        for mx, my, mw, mh in monsters_data:
-            if patrol_direction == 'right' and mx > px and abs(my-py) < 100: # 加入 Y 軸容差，避免選到上下太多的怪物
-                valid_targets.append((mx, my, mw, mh))
-            elif patrol_direction == 'left' and mx < px and abs(my-py) < 100:
-                valid_targets.append((mx, my, mw, mh))
+        for mx, my, mw, mh in monsters_pos:
+            mcx = mx + (mw // 2) # 怪物中心點 X 座標
+            mcy = my + (mh // 2) # 怪物中心點 Y 座標
+            if direction == 'right' and mcx > pcx and abs(mcy - pcy) < 100: # 加入 Y 軸容差，避免選到上下太多的怪物
+                valid_targets.append((mcx, mcy))
+            elif direction == 'left' and mcx < pcx and abs(mcy - pcy) < 100:
+                valid_targets.append((mcx, mcy))
 
         if not valid_targets:
-            return None, False
+            return False, None
         
         # 2. 找出距離最近的怪物 (基於中心點 X 座標差距)
         # 使用 lambda 函數快速按距離排序
-        closest_monster = min(valid_targets, key=lambda m: abs(m[0] - px))
-        mx, my, mw, mh = closest_monster
+        closest_monster = min(valid_targets, key=lambda m: abs(m[0] - pcx))
+        mx, my = closest_monster
 
-        # 3. 計算動態邊緣距離 (方案 B 核心邏輯)
-        # 距離 = |玩家X - 怪物中心X| - (怪物寬度的一半 * (1 - 侵入係數))
-        distance_to_edge = abs(px - mx) - ((mw / 2) * (1 - self.penetration_ratio))
+        # 3. 計算距離
+        distance_to_monster = abs(mx - pcx)
 
         # 4. 判斷是否可以攻擊
-        can_attack = distance_to_edge <= self.skill_range
-        # print(f"🔍 目標怪物座標: ({mx}, {my}), {'可攻擊' if can_attack else '不可攻擊'}")
-        return closest_monster, can_attack
+        can_attack = distance_to_monster <= self.skill_range
+        if can_attack:
+            jump_or_not = False if distance_to_monster <= self.attack_range else True
+
+        return can_attack, jump_or_not
