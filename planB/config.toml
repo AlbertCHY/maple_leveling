@@ -27,6 +27,16 @@ window_end = 600
 base_cast_delay = 0.8
 
 [combat] # 戰鬥相關
-attack_range = 300
+safety_attack_range = 200 # 碰到怪前的安全攻擊距離
 skill_range = 550
 
+[constant] # 地圖常數
+BOUND_LEFT = 20        
+BOUND_RIGHT = 255      
+BOUND_MID_RIGHT = 210  
+TOP_FLOOR_Y = 100      
+MID_FLOOR_Y = 135      
+LOWER_FLOOR_Y = 180    
+ROPE_BETWEEN_MID = 245 
+ROPE_TO_TOP = 190     
+ROPE_RESCUE = 210  

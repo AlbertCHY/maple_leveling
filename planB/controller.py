@@ -37,6 +37,9 @@ class HumanizedController:
         pydirectinput.keyUp("space")
         self.sleep_gaussian(timming, 0.05, timming*0.9) # 根據 timming 參數調整攻擊按鍵的按下時間
         self.tap_key(key)
+        pydirectinput.keyUp(direction)
+        self.sleep_gaussian(0.04, 0.01, 0.02)
+
             
     def start_moving(self, direction):
         """模擬按下方向鍵不放"""
@@ -45,17 +48,16 @@ class HumanizedController:
     def stop_moving(self, direction):
         """模擬鬆開方向鍵"""
         pydirectinput.keyUp(direction)
-        # 鬆開按鍵後，給予極短的神經反應延遲，防止鍵盤連擊誤判
+        # 鬆開按鍵後，給予極短的神經反應延遲，防止鍵盤太頻繁輸入
         self.sleep_gaussian(0.04, 0.01, 0.02)
 
     def climb_rope(self, duration):
-        """模擬按住上鍵爬繩"""
+        """模擬跳起來抓繩並攀爬，duration 是攀爬的持續時間"""
         pydirectinput.keyDown("up")
-        self.sleep_gaussian(0.08, 0.01, 0.06) # 跳起來抓繩
+        self.sleep_gaussian(0.05, 0.01, 0.04)
         self.tap_key("space")
-        self.sleep_gaussian(0.1, 0.02, 0.05)
         # 爬繩需要一段時間，加入一點隨機性
-        actual_duration = duration + random.uniform(-0.1, 0.2)
+        actual_duration = duration + random.uniform(0, 0.1)
         time.sleep(actual_duration)
         pydirectinput.keyUp("up")
         self.sleep_gaussian(0.05, 0.01, 0.03)
