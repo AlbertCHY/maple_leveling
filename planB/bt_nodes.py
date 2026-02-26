@@ -85,17 +85,45 @@ class NavigateUpNode(Node):
     def __init__(self, target_rope_x, target_floor_y):
         self.target_rope_x = target_rope_x
         self.target_floor_y = target_floor_y
+        self.is_jumping = False # 是否已經執行過跳躍抓繩的動作了
+        self.is_climbing = False # 是否正在爬繩中
 
     def tick(self, context):
         maple_bot = context.get("maple_bot")
         gps_px = context.get("gps_px")
         gps_py = context.get("gps_py")
+        distance_to_rope = gps_px - self.target_rope_x
 
         # 如果抵達目標樓層，回傳成功
         if gps_py <= self.target_floor_y:
             maple_bot._update_movement(None)
+            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04)
+            maple_bot.controller.tap("space") # 跳躍提早離開繩子
+            maple_bot.controller.sleep_gaussian(0.1, 0.02, 0.08)
+            maple_bot.controller.hold_key_end("up")
+            self.is_climbing = False
+            self.is_jumping = False
             return NodeStatus.SUCCESS
 
         # 找繩子並爬上去
-        maple_bot._find_rope(gps_px, self.target_rope_x, 2.5)
+        if abs(distance_to_rope) <= 7 and not self.is_climbing:
+            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04) # 模擬人類反應時間
+            maple_bot.controller.hold_key_start("up") # 按住上鍵準備抓繩
+            self.is_climbing = True # 標記正在爬繩中，避免重複觸發
+        if abs(distance_to_rope) <= 2 and self.is_jumping:
+            maple_bot.controller.hold_key_end("space") # 放開跳躍鍵
+            self.is_jumping = False
+        elif abs(distance_to_rope) <= 5 and not self.is_jumping:
+            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04)
+            maple_bot.controller.hold_key_start("space") # 按住跳嘗試抓繩
+            self.is_jumping = True # 標記已經跳過了，避免重複跳躍
+        elif abs(distance_to_rope) > 5:
+            maple_bot.controller.hold_key_end("space") # 放開跳躍鍵
+            self.is_jumping = False # 重置跳躍狀態
+        
+        if distance_to_rope > 0:
+            maple_bot._update_movement('left')
+        else:
+            maple_bot._update_movement('right')
+
         return NodeStatus.RUNNING

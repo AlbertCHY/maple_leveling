@@ -58,9 +58,9 @@ class MapleBot:
         if self.current_movement == direction:
             return
         if self.current_movement:
-            self.controller.stop_moving(self.current_movement)
+            self.controller.hold_key_end(self.current_movement)
         if direction:
-            self.controller.start_moving(direction)
+            self.controller.hold_key_start(direction)
         self.current_movement = direction
 
     def _handle_combat_state(self, direction, bound_x, gps_px, yolo_player, yolo_monsters):
@@ -89,16 +89,17 @@ class MapleBot:
             
         return False # 還沒抵達邊界
     
-    def _find_rope(self, gps_px, target_rope_x, duration):
-        """導航至繩子位置的輔助函數"""
-        distance_to_rope = gps_px - target_rope_x
-        if abs(distance_to_rope) <= 5:
-            self._update_movement(None)
-            self.controller.climb_rope(duration)
-        elif distance_to_rope > 0:
-            self._update_movement('left')
-        else:
-            self._update_movement('right')
+    # def _find_rope(self, gps_px, target_rope_x, is_jumping):
+    #     """導航至繩子位置的輔助函數
+    #     """
+    #     distance_to_rope = gps_px - target_rope_x
+    #     if abs(distance_to_rope) <= 5:
+    #         self._update_movement(None)
+    #         self.controller.climb_rope(duration)
+    #     elif distance_to_rope > 0:
+    #         self._update_movement('left')
+    #     else:
+    #         self._update_movement('right')
 
     def run(self):
         print("=== Maple Leveler (行為樹版) 啟動 ===")
