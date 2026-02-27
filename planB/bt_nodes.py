@@ -1,3 +1,4 @@
+import random
 from behavior_tree import Node, NodeStatus
 import time
 
@@ -5,23 +6,39 @@ import time
 # 1. 優先級中斷節點 (Interrupt Nodes)
 # ==========================================
 class FallRecoveryNode(Node):
-    """底層救援節點"""
+    """底層救援節點 (包裝了 NavigateUpNode)"""
+    def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
+        self.activate_y = activate_y
+        self.climb_node = NavigateUpNode(target_rope_x, target_floor_y)
+        self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
+        self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
+        self.is_recovering = False
+
     def tick(self, context):
-        maple_bot = context.get("maple_bot")
-        gps_px = context.get("gps_px")
-        gps_py = context.get("gps_py")
+        gps_py = context.get('gps_py')
 
-        # 如果掉到底層，啟動救援機制
-        if gps_py >= maple_bot.constants["LOWER_FLOOR_Y"]:
-            print(f"\r⚠️ [行為樹] 執行底層救援... (X:{gps_px} Y:{gps_py}) \033[K", end="")
-            if gps_py <= maple_bot.constants["MID_FLOOR_Y"]:
-                maple_bot._update_movement(None)
-                return NodeStatus.SUCCESS # 救援完畢！
+        # 1. 觸發條件：掉到底層，鎖定進入救援狀態
+        if gps_py >= self.activate_y:
+            self.is_recovering = True
 
-            maple_bot._find_rope(gps_px, maple_bot.constants["ROPE_RESCUE"], 2.5)
-            return NodeStatus.RUNNING # 還在救援中
+        # 2. 執行救援
+        if self.is_recovering:
+            print("[行為樹] 執行底層救援中...")
             
-        return NodeStatus.FAILURE # 沒掉下去，此節點判定失敗，讓行為樹往下走
+            # 把 context 轉交給肚子裡的 climb_node 去執行
+            status = self.climb_node.tick(context)
+            
+            if status == NodeStatus.SUCCESS:
+                # 爬到目標樓層了！解除救援狀態
+                self.is_recovering = False
+                self.patrol_sequence.current_idx = self.resume_index
+                print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
+                
+                return NodeStatus.SUCCESS
+                
+            return NodeStatus.RUNNING # 還在爬
+
+        return NodeStatus.FAILURE # 沒掉下去，沒事
 
 class BuffNode(Node):
     """Buff 檢查與施放節點"""
@@ -85,45 +102,54 @@ class NavigateUpNode(Node):
     def __init__(self, target_rope_x, target_floor_y):
         self.target_rope_x = target_rope_x
         self.target_floor_y = target_floor_y
-        self.is_jumping = False # 是否已經執行過跳躍抓繩的動作了
         self.is_climbing = False # 是否正在爬繩中
+        self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
+        self.last_jump_time = 0 # 記錄起跳時間
+        self.finish_counter = 0
 
     def tick(self, context):
         maple_bot = context.get("maple_bot")
         gps_px = context.get("gps_px")
         gps_py = context.get("gps_py")
         distance_to_rope = gps_px - self.target_rope_x
+        current_time = time.time()
 
         # 如果抵達目標樓層，回傳成功
         if gps_py <= self.target_floor_y:
-            maple_bot._update_movement(None)
-            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04)
-            maple_bot.controller.tap("space") # 跳躍提早離開繩子
-            maple_bot.controller.sleep_gaussian(0.1, 0.02, 0.08)
-            maple_bot.controller.hold_key_end("up")
-            self.is_climbing = False
-            self.is_jumping = False
-            return NodeStatus.SUCCESS
+            if self.prev_y == gps_py:
+                self.finish_counter += 1
+                if self.finish_counter >= 5:
+                    maple_bot.controller.hold_key_end("up")
+                    self.is_climbing = False
+                    return NodeStatus.SUCCESS
+            else:
+                self.finish_counter = 0
 
         # 找繩子並爬上去
-        if abs(distance_to_rope) <= 7 and not self.is_climbing:
-            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04) # 模擬人類反應時間
-            maple_bot.controller.hold_key_start("up") # 按住上鍵準備抓繩
-            self.is_climbing = True # 標記正在爬繩中，避免重複觸發
-        if abs(distance_to_rope) <= 2 and self.is_jumping:
-            maple_bot.controller.hold_key_end("space") # 放開跳躍鍵
-            self.is_jumping = False
-        elif abs(distance_to_rope) <= 5 and not self.is_jumping:
-            maple_bot.controller.sleep_gaussian(0.05, 0.01, 0.04)
-            maple_bot.controller.hold_key_start("space") # 按住跳嘗試抓繩
-            self.is_jumping = True # 標記已經跳過了，避免重複跳躍
-        elif abs(distance_to_rope) > 5:
-            maple_bot.controller.hold_key_end("space") # 放開跳躍鍵
-            self.is_jumping = False # 重置跳躍狀態
-        
-        if distance_to_rope > 0:
-            maple_bot._update_movement('left')
+        elif abs(distance_to_rope) <= 10:
+            maple_bot._update_movement('none')
+            if not self.is_climbing:
+                maple_bot.controller.tap_key("space")
+                maple_bot.controller.hold_key_start("up")
+                self.is_climbing = True
+                self.last_jump_time = current_time
+                self.prev_y = gps_py
+            else:
+                if current_time - self.last_jump_time > 1:
+                    # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
+                    if  gps_py >= self.prev_y:
+                        maple_bot.controller.hold_key_end("up")
+                        self.is_climbing = False
         else:
-            maple_bot._update_movement('right')
+            # 如果之前被怪撞飛離開了繩子範圍，重置爬繩狀態
+            if self.is_climbing:
+                maple_bot.controller.hold_key_end("up")
+                self.is_climbing = False
+
+            if distance_to_rope > 0:
+                maple_bot._update_movement('left')  # 人在繩子右邊，往左走
+            else:
+                maple_bot._update_movement('right') # 人在繩子左邊，往右走
+        self.prev_y = gps_py
 
         return NodeStatus.RUNNING

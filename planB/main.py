@@ -37,18 +37,25 @@ class MapleBot:
         
         # 核心巡邏迴圈
         patrol_sequence = MemorySequence([
-            ClearPlatformNode('left', self.constants["BOUND_LEFT"]),                              # 1. 上層向左清
-            JumpDownNode(self.constants["TOP_FLOOR_Y"]),                                          # 2. 下跳到中層
-            ClearPlatformNode('right', self.constants["BOUND_MID_RIGHT"]),                        # 3. 中層向右清
-            NavigateUpNode(self.constants["ROPE_BETWEEN_MID"], self.constants["MID_FLOOR_Y"]),    # 4. 爬繩到中層高平台
-            ClearPlatformNode('left', self.constants["ROPE_TO_TOP"]),                             # 5. 高平台向左清
-            NavigateUpNode(self.constants["ROPE_TO_TOP"], self.constants["TOP_FLOOR_Y"]),         # 6. 爬繩回上層
-            ClearPlatformNode('right', self.constants["BOUND_RIGHT"])                             # 7. 上層向右清 (完畢後自動回到步驟 1)
+            ClearPlatformNode('left', self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
+            JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
+            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]-10),                        # 3. 中層向右清
+            NavigateUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
+            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"]),                             # 5. 高平台向右清
+            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]+10),                              # 6. 高平台向左清
+            NavigateUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
+            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         ])
 
         # 根節點：決定當下最高優先級的行為
         self.root = Selector([
-            FallRecoveryNode(),   # 優先級 1：掉落救援 (保命最重要)
+            FallRecoveryNode( # 優先級 1：掉落救援
+                self.constants["MID_BOT_BOUND_Y"],
+                self.constants["ROPE_RESCUE_X"],
+                self.constants["ROPE_RESCUE_Y"],
+                patrol_sequence,
+                2 # 掉落救援結束後，巡邏流程從第 3 步 (中層向右清) 繼續
+            ), 
             BuffNode(),           # 優先級 2：施放 BUFF (打怪前先上狀態)
             patrol_sequence       # 優先級 3：正常巡邏與打怪
         ])
@@ -71,15 +78,15 @@ class MapleBot:
         # 戰鬥邏輯：根據 GPS 和 YOLO 資料決定是否攻擊或繼續移動
         target_in_range, jump_or_not = self.combat.find_target_and_check_range(yolo_player, yolo_monsters, direction)
         if target_in_range:
-            if jump_or_not:
+            if jump_or_not and random.random() < 0.8:
                 print(f"⚔️ [{direction.upper()}] 前跳攻擊！")
-                self.controller.jump_attack(direction, 'f', timming=0.025)
-                time.sleep(0.6 + random.uniform(-0.01, 0.01)) # 等待跳躍動畫結束
+                self.controller.jump_attack(direction, 'f', timming=0.01)
+                self.controller.sleep_gaussian(0.6, 0.01, 0.55) # 等待跳躍動畫結束
             else:
                 print(f"⚔️ [{direction.upper()}] 攻擊！")
                 self._update_movement(None)
                 self.controller.tap_key('f')
-                time.sleep(0.2 + random.uniform(-0.01, 0.01)) # 等待攻擊動畫結束
+                self.controller.sleep_gaussian(0.6, 0.01, 0.55) # 等待攻擊動畫結束
         else:
             self._update_movement(direction) # 繼續走
             if (direction == 'left' and gps_px <= random.uniform(bound_x - 3, bound_x)) or \
@@ -88,18 +95,6 @@ class MapleBot:
                 return True # 已經抵達邊界，通知主迴圈切換狀態
             
         return False # 還沒抵達邊界
-    
-    # def _find_rope(self, gps_px, target_rope_x, is_jumping):
-    #     """導航至繩子位置的輔助函數
-    #     """
-    #     distance_to_rope = gps_px - target_rope_x
-    #     if abs(distance_to_rope) <= 5:
-    #         self._update_movement(None)
-    #         self.controller.climb_rope(duration)
-    #     elif distance_to_rope > 0:
-    #         self._update_movement('left')
-    #     else:
-    #         self._update_movement('right')
 
     def run(self):
         print("=== Maple Leveler (行為樹版) 啟動 ===")
@@ -130,8 +125,7 @@ class MapleBot:
                 
                 if not gps_data['player']:
                     continue
-
-                print(f"\r當前位置: {gps_data['player']} \033[K", end="")
+                print(f"\r小地圖位置: {gps_data['player']} \033[K", end="")
 
                 # 驅動行為樹
                 context = {
@@ -144,7 +138,7 @@ class MapleBot:
                 
                 self.root.tick(context)
 
-                # 控制迴圈頻率
+                # 控制迴圈頻率6
                 time.sleep(0.02)
 
         except KeyboardInterrupt:

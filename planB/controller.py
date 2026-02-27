@@ -37,7 +37,7 @@ class HumanizedController:
         pydirectinput.keyUp("space")
         self.sleep_gaussian(timming, 0.05, timming*0.9) # 根據 timming 參數調整攻擊按鍵的按下時間
         self.tap_key(key)
-        pydirectinput.keyUp(direction)
+        #pydirectinput.keyUp(direction)
         self.sleep_gaussian(0.04, 0.01, 0.02)
 
             

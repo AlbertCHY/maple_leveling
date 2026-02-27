@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import mss
-import time
 
 class MinimapDebugger:
     def __init__(self):
@@ -9,8 +8,8 @@ class MinimapDebugger:
         # ⚠️ 請在這裡填入你目前使用的 GPS 參數
         # ==========================================
         self.region = (10, 160, 270, 250)  # (X, Y, W, H)
-        self.lower_yellow = np.array([20, 100, 100])
-        self.upper_yellow = np.array([40, 255, 255])
+        self.lower_yellow = np.array([20, 200, 200])
+        self.upper_yellow = np.array([30, 255, 255])
         
         self.sct = mss.mss()
 
@@ -47,7 +46,7 @@ class MinimapDebugger:
                 bx, by, bw, bh = cv2.boundingRect(cnt)
                 
                 # 這是我們目前的過濾條件：寬高都小於 20 的物件
-                if 0 < bw < 20 and 0 < bh < 20:
+                if 10 < bw < 20 and 10 < bh < 20:
                     cX = bx + (bw // 2)
                     cY = by + (bh // 2)
                     
