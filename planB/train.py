@@ -19,13 +19,13 @@ def main():
     print("🔥 步驟 3: RTX 4070 啟動，開始正式訓練！")
     # 關鍵超參數設定
     results = model.train(
-        data="roboflow/data.yaml", # 自動抓取剛剛下載的路徑
+        data="roboflow_dataset/blackboar/data.yaml", # 自動抓取剛剛下載的路徑
         epochs=150,      # 200張圖，我們跑 150 輪讓它充分學習
         imgsz=640,       # 保持 640x640 的標準輸入
         batch=16,        # 你的 RTX 4070 絕對吃得下 batch 16
         device=0,        # 使用你的 GPU
         workers=4,       # 資料載入的執行緒數量
-        patience=30      # Early Stopping (防過擬合)：如果 30 輪都沒有進步，就提早結束
+        patience=20      # Early Stopping (防過擬合)：如果 20 輪都沒有進步，就提早結束
     )
     
     print("🎉 訓練大功告成！最好的權重已經存放在 runs/detect/train/weights/best.pt")

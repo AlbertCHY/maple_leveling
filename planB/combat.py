@@ -27,9 +27,9 @@ class CombatTargeting:
 
         # 1. 根據巡邏方向過濾怪物
         for mx, my, mw, _ in monsters_pos:
-            if direction == 'right' and mx > px and abs(my - py) < 100: # 加入 Y 軸比對，避免選到別的平台的目標
+            if direction == 'right' and mx > px and abs(my - py) < 175: # 加入 Y 軸比對，避免選到別的平台的目標
                 valid_targets.append((mx, my, mw))
-            elif direction == 'left' and mx < px and abs(my - py) < 150:
+            elif direction == 'left' and mx < px and abs(my - py) < 175:
                 valid_targets.append((mx, my, mw))
 
         if not valid_targets:

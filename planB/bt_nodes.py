@@ -118,7 +118,7 @@ class NavigateUpNode(Node):
         if gps_py <= self.target_floor_y:
             if self.prev_y == gps_py:
                 self.finish_counter += 1
-                if self.finish_counter >= 5:
+                if self.finish_counter >= 4:
                     maple_bot.controller.hold_key_end("up")
                     self.is_climbing = False
                     return NodeStatus.SUCCESS

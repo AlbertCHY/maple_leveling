@@ -8,7 +8,7 @@ from ultralytics import YOLO
 SCREEN_REGION = {"top": 22, "left": 0, "width": 2560, "height": 1370}
 
 class GamePerception:
-    def __init__(self, model_path="runs/detect/train/weights/best.pt"):
+    def __init__(self, model_path="runs/detect/train4/weights/best.pt"):
         print("載入 YOLO 大腦中...")
         # 載入你剛剛訓練好的最強權重
         self.model = YOLO(model_path)
@@ -45,9 +45,9 @@ class GamePerception:
             # .tolist() 確保 Tensor 轉換為原生 list，避免 map(int) 報錯
             x_center, y_center, w, h = map(int, box.xywh[0].tolist())
             
-            if name == 'Player':
+            if name == 'player':
                 perception_data["player"] = (x_center, y_center)
-            elif name == 'Mobs':
+            elif name == 'blackboar':
                 perception_data["monsters"].append((x_center, y_center))
 
         return frame, perception_data, results[0]
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     vision_system = GamePerception()
         
     # 建立除錯資料夾
-    os.makedirs("debug_vision", exist_ok=True)
+    # os.makedirs("debug_vision", exist_ok=True)
     
     # 1. 強制初始化一個可縮放的視窗 (避免亂彈新視窗)
     window_name = "YOLO Debug Vision"
@@ -93,11 +93,11 @@ if __name__ == "__main__":
             
             if key == ord('q'):
                 break
-            elif key == ord('s'):
-                # 2. 熱鍵快照功能：存檔讓你慢慢看
-                filename = f"debug_vision/snapshot_{int(time.time()*1000)}.jpg"
-                cv2.imwrite(filename, annotated_frame)
-                print(f"📸 已儲存異常畫面快照至：{filename}")
+            # elif key == ord('s'):
+            #     # 2. 熱鍵快照功能：存檔讓你慢慢看
+            #     filename = f"debug_vision/snapshot_{int(time.time()*1000)}.jpg"
+            #     cv2.imwrite(filename, annotated_frame)
+            #     print(f"📸 已儲存異常畫面快照至：{filename}")
             
     except KeyboardInterrupt:
         print("系統關閉。")

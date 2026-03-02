@@ -7,8 +7,9 @@ class MinimapDebugger:
         # ==========================================
         # ⚠️ 請在這裡填入你目前使用的 GPS 參數
         # ==========================================
-        self.region = (10, 160, 270, 250)  # (X, Y, W, H)
-        self.lower_yellow = np.array([20, 200, 200])
+        #self.region = (10, 160, 270, 250)  # (X, Y, W, H)
+        self.region = (10, 170, 310, 190)
+        self.lower_yellow = np.array([27, 200, 200])
         self.upper_yellow = np.array([30, 255, 255])
         
         self.sct = mss.mss()

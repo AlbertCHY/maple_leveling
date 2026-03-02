@@ -6,11 +6,11 @@ height = 1392
 
 [model] # 物件偵測模型
 path = "model/bone_dragon/weights/best.pt"
-conf = 0.5 # 信心指數
+conf = 0.4 # 信心指數
 
 [mini_map] # 小地圖顏色過濾
 region = [10, 160, 270, 250]
-lower_yellow = [20, 200, 200]
+lower_yellow = [25, 200, 200]
 upper_yellow = [30, 255, 255]
 
 

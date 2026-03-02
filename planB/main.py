@@ -18,7 +18,7 @@ from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode
 class MapleBot:
     def __init__(self):
         print("🔧 系統初始化中...")
-        with open("config.toml", "rb") as f:
+        with open("config_bonedragon.toml", "rb") as f:
             self.config = tomllib.load(f)
 
         self.vision = GamePerception.from_config(self.config)
@@ -78,7 +78,7 @@ class MapleBot:
         # 戰鬥邏輯：根據 GPS 和 YOLO 資料決定是否攻擊或繼續移動
         target_in_range, jump_or_not = self.combat.find_target_and_check_range(yolo_player, yolo_monsters, direction)
         if target_in_range:
-            if jump_or_not and random.random() < 0.8:
+            if jump_or_not:
                 print(f"⚔️ [{direction.upper()}] 前跳攻擊！")
                 self.controller.jump_attack(direction, 'f', timming=0.01)
                 self.controller.sleep_gaussian(0.6, 0.01, 0.55) # 等待跳躍動畫結束
