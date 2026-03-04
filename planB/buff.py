@@ -31,7 +31,7 @@ class BuffTask:
         print(f"⏱️ [{self.name}] 下一次施放預計在 {delay:.1f} 秒後")
 
 class BuffManager:
-    def __init__(self, controller, buff_setting):
+    def __init__(self, buff_setting, controller):
         """
         :param controller: HumanizedController 實例
         """
@@ -52,26 +52,36 @@ class BuffManager:
     def from_config(cls, controller, config):
         return cls(controller, config["buff"])
 
-    def check_and_cast(self):
+    def get_ready_task(self, current_time):
         """
-        在主迴圈中每一幀呼叫此方法。
-        回傳 True 代表「剛剛放了 BUFF」，回傳 False 代表「沒事發生」。
+        純粹檢查是否有 BUFF 任務到期需要施放。
+        回傳第一個需要施放的 BuffTask，如果都沒有則回傳 None。
         """
-        current_time = time.time()
-        buff_casted = False
-
         for task in self.tasks:
             if task.is_ready(current_time):
-                print(f"\n✨ [狀態切換] 暫停動作，開始施放: {task.name} ({task.keys})")
-                time.sleep(random.uniform(1, 1.2)) # 確保前一個動作完全停止
+                return task
+        return None
+    
+    # def check_and_cast(self):
+    #     """
+    #     在主迴圈中每一幀呼叫此方法。
+    #     回傳 True 代表「剛剛放了 BUFF」，回傳 False 代表「沒事發生」。
+    #     """
+    #     current_time = time.time()
+    #     buff_casted = False
+
+    #     for task in self.tasks:
+    #         if task.is_ready(current_time):
+    #             print(f"\n✨ [狀態切換] 暫停動作，開始施放: {task.name} ({task.keys})")
+    #             time.sleep(random.uniform(1, 1.2)) # 確保前一個動作完全停止
                 
-                # 依序按下技能鍵
-                for key in task.keys:
-                    self.controller.tap_key(key)
-                    self.controller.sleep_gaussian(task.base_cast_delay, 0.1, 0.75) # 等待技能動畫結束
+    #             # 依序按下技能鍵
+    #             for key in task.keys:
+    #                 self.controller.tap_key(key)
+    #                 self.controller.sleep_gaussian(task.base_cast_delay, 0.1, 0.75) # 等待技能動畫結束
                 
-                # 施放完畢後，重新排程下一次的時間
-                task.schedule_next(time.time())
-                buff_casted = True
+    #             # 施放完畢後，重新排程下一次的時間
+    #             task.schedule_next(time.time())
+    #             buff_casted = True
                 
-        return buff_casted
+    #     return buff_casted

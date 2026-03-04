@@ -1,16 +1,18 @@
 class CombatTargeting:
-    def __init__(self, skill_range, safety_attack_range):
+    def __init__(self, skill_range, safety_attack_range, max_diff_y):
         """
         :param safety_attack_range: 安全攻擊距離，從這個距離開始原地攻擊
         :param skill_range: 技能攻擊距離，在這個範圍內但是超過安全攻擊距離，則向前跳躍攻擊
         """
         self.skill_range = skill_range
         self.safety_attack_range = safety_attack_range
+        self.max_diff_y = max_diff_y
 
     @classmethod
     def from_config(cls, config):
         return cls(config["combat"]["skill_range"], 
-                   config["combat"]["safety_attack_range"])
+                   config["combat"]["safety_attack_range"],
+                   config["combat"]["max_diff_y"])
 
     def find_target_and_check_range(self, player_pos, monsters_pos, direction):
         """
@@ -27,9 +29,9 @@ class CombatTargeting:
 
         # 1. 根據巡邏方向過濾怪物
         for mx, my, mw, _ in monsters_pos:
-            if direction == 'right' and mx > px and abs(my - py) < 175: # 加入 Y 軸比對，避免選到別的平台的目標
+            if direction == 'right' and mx > px and abs(my - py) < self.max_diff_y: # 加入 Y 軸比對，避免選到別的平台的目標
                 valid_targets.append((mx, my, mw))
-            elif direction == 'left' and mx < px and abs(my - py) < 175:
+            elif direction == 'left' and mx < px and abs(my - py) < self.max_diff_y:
                 valid_targets.append((mx, my, mw))
 
         if not valid_targets:
@@ -50,3 +52,5 @@ class CombatTargeting:
             jump_or_not = True
 
         return can_attack, jump_or_not
+    
+    

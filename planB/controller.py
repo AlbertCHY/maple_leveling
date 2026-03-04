@@ -6,11 +6,16 @@ class HumanizedController:
     def __init__(self):
         # 關閉 pydirectinput 預設的死板延遲
         pydirectinput.PAUSE = 0 
+        self.current_movement = None
 
     def sleep_gaussian(self, mu, sigma, min_val):
         """產生常態分佈的隨機延遲，模擬人類反應神經"""
         delay = random.gauss(mu, sigma) # 以 mu 為平均值，sigma 為標準差產生隨機數
         time.sleep(max(min_val, delay)) # 確保不會小於 min_val 秒，以避免極端值
+
+    def get_guassian(self, mu, sigma, min_val):
+        delay = random.gauss(mu, sigma)
+        return max(min_val, delay)
 
     def tap_key(self, key, press_time_mu=0.05, press_time_sigma=0.01):
         """模擬單次按鍵 (如：攻擊 技能)"""
@@ -39,8 +44,7 @@ class HumanizedController:
         self.tap_key(key)
         #pydirectinput.keyUp(direction)
         self.sleep_gaussian(0.04, 0.01, 0.02)
-
-            
+    
     def hold_key_start(self, key):
         """模擬按住按鍵不放"""
         pydirectinput.keyDown(key)
@@ -51,13 +55,11 @@ class HumanizedController:
         # 鬆開按鍵後，給予極短的神經反應延遲，防止鍵盤太頻繁輸入
         self.sleep_gaussian(0.04, 0.01, 0.02)
 
-    # def climb_rope(self, duration):
-    #     """模擬跳起來抓繩並攀爬，duration 是攀爬的持續時間"""
-    #     pydirectinput.keyDown("up")
-    #     self.sleep_gaussian(0.05, 0.01, 0.04)
-    #     self.tap_key("space")
-    #     # 爬繩需要一段時間，加入一點隨機性
-    #     actual_duration = duration + random.uniform(0, 0.1)
-    #     time.sleep(actual_duration)
-    #     pydirectinput.keyUp("up")
-    #     self.sleep_gaussian(0.05, 0.01, 0.03)
+    def update_movement(self, direction):
+        if self.current_movement == direction:
+            return
+        if self.current_movement:
+            self.hold_key_end(self.current_movement)
+        if direction:
+            self.hold_key_start(direction)
+        self.current_movement = direction

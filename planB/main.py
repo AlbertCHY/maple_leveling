@@ -24,10 +24,10 @@ class MapleBot:
         self.vision = GamePerception.from_config(self.config)
         self.gps = MinimapParser.from_config(self.config)
         self.controller = HumanizedController()
-        self.buff_manager = BuffManager.from_config(self.controller, self.config)
+        self.buff_manager = BuffManager.from_config(self.config, self.controller)
         self.combat = CombatTargeting.from_config(self.config)
         self.constants = self.config["constant"]
-        self.current_movement = None
+        
 
         # 建立 AI 大腦：行為樹 (Behavior Tree)
         self._build_behavior_tree()
@@ -39,62 +39,26 @@ class MapleBot:
         patrol_sequence = MemorySequence([
             ClearPlatformNode('left', self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
             JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
-            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]-10),                        # 3. 中層向右清
+            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]),                           # 3. 中層向右清
             NavigateUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
-            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"]),                             # 5. 高平台向右清
-            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]+10),                              # 6. 高平台向左清
+            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
+            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]),                                 # 6. 高平台向左清
             NavigateUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
             ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         ])
 
         # 根節點：決定當下最高優先級的行為
         self.root = Selector([
-            FallRecoveryNode( # 優先級 1：掉落救援
+            BuffNode(self.buff_manager),            # 優先級 1：施放 BUFF (打怪前先上狀態)
+            FallRecoveryNode(                       # 優先級 2：掉落救援
                 self.constants["MID_BOT_BOUND_Y"],
                 self.constants["ROPE_RESCUE_X"],
                 self.constants["ROPE_RESCUE_Y"],
                 patrol_sequence,
-                2 # 掉落救援結束後，巡邏流程從第 3 步 (中層向右清) 繼續
+                2                                   # 掉落救援結束後，巡邏流程從第 3 步 (中層向右清) 繼續
             ), 
-            BuffNode(),           # 優先級 2：施放 BUFF (打怪前先上狀態)
-            patrol_sequence       # 優先級 3：正常巡邏與打怪
+            patrol_sequence                         # 優先級 3：正常巡邏與打怪
         ])
-
-    def _update_movement(self, direction):
-        """非阻塞式方向鍵控制"""
-        if self.current_movement == direction:
-            return
-        if self.current_movement:
-            self.controller.hold_key_end(self.current_movement)
-        if direction:
-            self.controller.hold_key_start(direction)
-        self.current_movement = direction
-
-    def _handle_combat_state(self, direction, bound_x, gps_px, yolo_player, yolo_monsters):
-        """
-        處理清怪狀態的微觀決策
-        :return: bool, 是否已經抵達邊界？
-        """
-        # 戰鬥邏輯：根據 GPS 和 YOLO 資料決定是否攻擊或繼續移動
-        target_in_range, jump_or_not = self.combat.find_target_and_check_range(yolo_player, yolo_monsters, direction)
-        if target_in_range:
-            if jump_or_not:
-                print(f"⚔️ [{direction.upper()}] 前跳攻擊！")
-                self.controller.jump_attack(direction, 'f', timming=0.01)
-                self.controller.sleep_gaussian(0.6, 0.01, 0.55) # 等待跳躍動畫結束
-            else:
-                print(f"⚔️ [{direction.upper()}] 攻擊！")
-                self._update_movement(None)
-                self.controller.tap_key('f')
-                self.controller.sleep_gaussian(0.6, 0.01, 0.55) # 等待攻擊動畫結束
-        else:
-            self._update_movement(direction) # 繼續走
-            if (direction == 'left' and gps_px <= random.uniform(bound_x - 3, bound_x)) or \
-            (direction == 'right' and gps_px >= random.uniform(bound_x, bound_x + 3)):
-                self._update_movement(None)
-                return True # 已經抵達邊界，通知主迴圈切換狀態
-            
-        return False # 還沒抵達邊界
 
     def run(self):
         print("=== Maple Leveler (行為樹版) 啟動 ===")
@@ -109,7 +73,7 @@ class MapleBot:
                 if keyboard.is_pressed('f11'):
                     is_paused = not is_paused
                     print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
-                    self._update_movement(None)
+                    self.controller.update_movement(None)
                     time.sleep(0.5)
 
                 if is_paused:
@@ -129,11 +93,13 @@ class MapleBot:
 
                 # 驅動行為樹
                 context = {
-                    'maple_bot': self,
-                    'gps_px': gps_data['player'][0],
-                    'gps_py': gps_data['player'][1],
-                    'yolo_player': yolo_data['player'],
-                    'yolo_monsters': yolo_data['monsters']
+                'controller': self.controller,
+                'combat': self.combat,
+                'movement_manager': self.movement_manager,
+                'gps_px': gps_data['player'][0],
+                'gps_py': gps_data['player'][1],
+                'yolo_player': yolo_data['player'],
+                'yolo_monsters': yolo_data['monsters']
                 }
                 
                 self.root.tick(context)
@@ -144,7 +110,7 @@ class MapleBot:
         except KeyboardInterrupt:
             print("\n🛑 接收到中斷訊號，正在安全關閉系統...")
         finally:
-            self._update_movement(None)
+            self.controller.update_movement(None)
 
 if __name__ == "__main__":
     bot = MapleBot()
