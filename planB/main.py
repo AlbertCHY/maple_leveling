@@ -10,6 +10,7 @@ from gps import MinimapParser
 from controller import HumanizedController
 from buff import BuffManager
 from combat import CombatTargeting
+# from navigator import Navigator
 
 # 匯入全新的行為樹模組
 from behavior_tree import Selector, MemorySequence
@@ -18,11 +19,12 @@ from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode
 class MapleBot:
     def __init__(self):
         print("🔧 系統初始化中...")
-        with open("config_bonedragon.toml", "rb") as f:
+        with open("config/config.toml", "rb") as f:
             self.config = tomllib.load(f)
 
         self.vision = GamePerception.from_config(self.config)
         self.gps = MinimapParser.from_config(self.config)
+        # self.navigator = Navigator()
         self.controller = HumanizedController()
         self.buff_manager = BuffManager.from_config(self.config, self.controller)
         self.combat = CombatTargeting.from_config(self.config)
@@ -60,6 +62,11 @@ class MapleBot:
             patrol_sequence                         # 優先級 3：正常巡邏與打怪
         ])
 
+        # self.root = Selector([
+        #     BuffNode(self.buff_manager),
+        #     DynamicPatrolNode(["P_TOP_LEFT", "P_MID_RIGHT", "P_TOP_RIGHT"]) # 傳入巡邏迴圈
+        # ])
+
     def run(self):
         print("=== Maple Leveler (行為樹版) 啟動 ===")
         print(" [F11]: 暫停/恢復")
@@ -95,12 +102,20 @@ class MapleBot:
                 context = {
                 'controller': self.controller,
                 'combat': self.combat,
-                'movement_manager': self.movement_manager,
                 'gps_px': gps_data['player'][0],
                 'gps_py': gps_data['player'][1],
                 'yolo_player': yolo_data['player'],
                 'yolo_monsters': yolo_data['monsters']
                 }
+                # context = {
+                # 'controller': self.controller,
+                # 'combat': self.combat,
+                # 'gps_px': gps_data['player'][0],
+                # 'gps_py': gps_data['player'][1],
+                # 'yolo_player': yolo_data['player'],
+                # 'yolo_monsters': yolo_data['monsters'],
+                # 'navigator': self.navigator
+                # }
                 
                 self.root.tick(context)
 

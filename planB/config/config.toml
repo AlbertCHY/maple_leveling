@@ -6,7 +6,7 @@ height = 1392
 
 [model] # 物件偵測模型
 path = "model/bone_dragon/weights/best.pt"
-conf = 0.4 # 信心指數
+conf = 0.5 # 信心指數
 
 [mini_map] # 小地圖顏色過濾
 region = [10, 160, 270, 250]
@@ -29,7 +29,8 @@ base_cast_delay = 0.8
 [combat] # 戰鬥相關
 safety_attack_range = 200 # 碰到怪前的安全攻擊距離
 skill_range = 550
-max_diff_y = 175 # 允許鎖定的最大Y範圍
+y_diff_higher = 200 # 允許鎖定高於多少Y的目標
+y_diff_lower = 150 # 允許鎖定低於多少Y的目標
 attack_interval = 0.6 # 攻擊後等待時間
 
 [constant] # 地圖常數
