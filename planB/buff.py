@@ -49,8 +49,8 @@ class BuffManager:
             self.tasks.append(task)
 
     @classmethod
-    def from_config(cls, controller, config):
-        return cls(controller, config["buff"])
+    def from_config(cls, config, controller):
+        return cls(config["buff"], controller)
 
     def get_ready_task(self, current_time):
         """

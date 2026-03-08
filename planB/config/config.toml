@@ -15,16 +15,16 @@ upper_yellow = [30, 255, 255]
 
 
 [buff.5min] # 5分鐘BUFF
-keys = ["q", "w", "e"]
+keys = ["q", "w", "e", "r"]
 window_start = 270
 window_end = 300
-base_cast_delay = 0.8
+base_cast_delay = 0.85
 
 [buff.10min] # 10分鐘BUFF
 keys = ["6"]
 window_start = 570
 window_end = 600
-base_cast_delay = 0.8
+base_cast_delay = 0.85
 
 [combat] # 戰鬥相關
 safety_attack_range = 200 # 碰到怪前的安全攻擊距離

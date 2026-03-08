@@ -71,7 +71,7 @@ class BuffNode(Node):
                 controller.tap_key(key)
                 
                 # 設定下一個按鍵的等待時間 (加上常態分佈隨機性)
-                delay = controller.get_guassian(self.active_task.base_cast_delay, 0.1, self.active_task.base_cast_delay*0.9)
+                delay = controller.get_guassian(self.active_task.base_cast_delay, 0.1, self.active_task.base_cast_delay-0.05)
                 self.resume_time = current_time + delay
                 self.key_index += 1
                 
@@ -117,6 +117,7 @@ class ClearPlatformNode(Node):
         self.dynamic_bound = random.uniform(self.bound_x - 2, self.bound_x + 2)
         self.is_attacking = False
         self.attack_end_time = 0
+        self.bomb_counter = 0
 
     def tick(self, context):
         controller = context.get("controller")
@@ -140,16 +141,22 @@ class ClearPlatformNode(Node):
 
         if target_in_range:
             self.is_attacking = True
-            self.attack_end_time = current_time + controller.get_guassian(0.6, 0.01, 0.55)
-            if jump_or_not:
-                print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
-                controller.jump_attack(self.direction, 'f', timming=0.01)
+            self.attack_end_time = current_time + controller.get_guassian(0.7, 0.01, 0.65)
+            if self.bomb_counter == 3:
+                controller.jump_attack(self.direction, 's', timming=0.2)
+                self.bomb_counter = 0
             else:
-                print(f"⚔️ [{self.direction.upper()}] 攻擊！")
-                controller.update_movement(None)
-                controller.tap_key('f')
+                if jump_or_not:
+                    print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
+                    controller.jump_attack(self.direction, 'f', timming=0.01)
+                else:
+                    print(f"⚔️ [{self.direction.upper()}] 攻擊！")
+                    controller.update_movement(None)
+                    controller.tap_key('f')
+                self.bomb_counter += 1
         else:
             controller.update_movement(self.direction) # 繼續走
+            self.bomb_counter = 0
 
             # 檢查是否到達邊界
             if (self.direction == "left" and gps_px <= self.dynamic_bound) or \
@@ -212,24 +219,25 @@ class NavigateUpNode(Node):
                 self.finish_counter = 0
 
         # 找繩子並爬上去
-        elif abs(distance_to_rope) <= 10:
-            if not self.is_climbing:
-                controller.tap_key("space")
-                controller.hold_key_start("up")
-                self.is_climbing = True
-                self.last_jump_time = current_time
-                self.prev_y = gps_py
-            else:
-                if current_time - self.last_jump_time > 0.8:
-                    # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
-                    if  gps_py >= self.prev_y:
-                        controller.hold_key_end("up")
-                        self.is_climbing = False
         else:
-            # 如果離開了繩子範圍，重置爬繩狀態
-            if self.is_climbing:
-                controller.hold_key_end("up")
-                self.is_climbing = False
+            if abs(distance_to_rope) <= 10:
+                if not self.is_climbing:
+                    controller.tap_key("space")
+                    controller.hold_key_start("up")
+                    self.is_climbing = True
+                    self.last_jump_time = current_time
+                    self.prev_y = gps_py
+                else:
+                    if current_time - self.last_jump_time > 0.8:
+                        # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
+                        if  gps_py >= self.prev_y:
+                            controller.hold_key_end("up")
+                            self.is_climbing = False
+            else:
+                # 如果離開了繩子範圍，重置爬繩狀態
+                if self.is_climbing:
+                    controller.hold_key_end("up")
+                    self.is_climbing = False
 
             if distance_to_rope > 0:
                 controller.update_movement('left')  # 人在繩子右邊，往左走
@@ -239,115 +247,115 @@ class NavigateUpNode(Node):
 
         return NodeStatus.RUNNING
     
-class DynamicPatrolNode(Node):
-    def __init__(self, patrol_route):
-        self.patrol_route = patrol_route  
-        self.route_idx = 0                
+# class DynamicPatrolNode(Node):
+#     def __init__(self, patrol_route):
+#         self.patrol_route = patrol_route  
+#         self.route_idx = 0                
         
-        self.current_path = []            
-        self.active_sub_node = None       
+#         self.current_path = []            
+#         self.active_sub_node = None       
         
-        # 💡 新增：用來記錄當前動作「合法」的所在平台
-        self.expected_platforms = set()   
+#         # 💡 新增：用來記錄當前動作「合法」的所在平台
+#         self.expected_platforms = set()   
 
-    def _find_nearest_route_index(self, current_platform, navigator):
-        """計算巡邏清單中，離目前平台最近的目標"""
-        if current_platform in self.patrol_route:
-            return self.patrol_route.index(current_platform)
+#     def _find_nearest_route_index(self, current_platform, navigator):
+#         """計算巡邏清單中，離目前平台最近的目標"""
+#         if current_platform in self.patrol_route:
+#             return self.patrol_route.index(current_platform)
             
-        min_steps = float('inf')
-        best_idx = self.route_idx
+#         min_steps = float('inf')
+#         best_idx = self.route_idx
         
-        for idx, target_p in enumerate(self.patrol_route):
-            path = navigator.find_path(current_platform, target_p)
-            if path is not None and len(path) < min_steps:
-                min_steps = len(path)
-                best_idx = idx
+#         for idx, target_p in enumerate(self.patrol_route):
+#             path = navigator.find_path(current_platform, target_p)
+#             if path is not None and len(path) < min_steps:
+#                 min_steps = len(path)
+#                 best_idx = idx
                 
-        return best_idx
+#         return best_idx
 
-    def tick(self, context):
-        navigator = context.get("navigator")
-        gps_px = context.get("gps_px")
-        gps_py = context.get("gps_py")
+#     def tick(self, context):
+#         navigator = context.get("navigator")
+#         gps_px = context.get("gps_px")
+#         gps_py = context.get("gps_py")
 
-        current_platform = navigator.get_current_platform(gps_px, gps_py)
+#         current_platform = navigator.get_current_platform(gps_px, gps_py)
 
-        # ==========================================
-        # 1. 位置守門員：檢查是否偏離路線 (解決問題 1)
-        # ==========================================
-        if self.active_sub_node is not None and current_platform is not None:
-            if current_platform not in self.expected_platforms:
-                print(f"⚠️ 遭到擊飛或偏離路線！目前在 {current_platform}，預期在 {self.expected_platforms}")
+#         # ==========================================
+#         # 1. 位置守門員：檢查是否偏離路線 (解決問題 1)
+#         # ==========================================
+#         if self.active_sub_node is not None and current_platform is not None:
+#             if current_platform not in self.expected_platforms:
+#                 print(f"⚠️ 遭到擊飛或偏離路線！目前在 {current_platform}，預期在 {self.expected_platforms}")
                 
-                # 強制中斷當前動作與路徑
-                self.active_sub_node = None
-                self.current_path = []
+#                 # 強制中斷當前動作與路徑
+#                 self.active_sub_node = None
+#                 self.current_path = []
                 
-                # 💡 動態重算最近的巡邏點 (解決問題 2)
-                self.route_idx = self._find_nearest_route_index(current_platform, navigator)
-                print(f"🔄 重新規劃路線，改為前往最近的巡邏點: {self.patrol_route[self.route_idx]}")
+#                 # 💡 動態重算最近的巡邏點 (解決問題 2)
+#                 self.route_idx = self._find_nearest_route_index(current_platform, navigator)
+#                 print(f"🔄 重新規劃路線，改為前往最近的巡邏點: {self.patrol_route[self.route_idx]}")
                 
-                return NodeStatus.RUNNING
+#                 return NodeStatus.RUNNING
 
-        # ==========================================
-        # 2. 執行子動作
-        # ==========================================
-        if self.active_sub_node is not None:
-            status = self.active_sub_node.tick(context)
-            if status == NodeStatus.SUCCESS:
-                self.active_sub_node = None # 動作完成，清空狀態
-            elif status == NodeStatus.FAILURE:
-                self.active_sub_node = None
-                self.current_path = [] # 動作失敗，清空路徑逼迫下一幀重算
-            return NodeStatus.RUNNING
+#         # ==========================================
+#         # 2. 執行子動作
+#         # ==========================================
+#         if self.active_sub_node is not None:
+#             status = self.active_sub_node.tick(context)
+#             if status == NodeStatus.SUCCESS:
+#                 self.active_sub_node = None # 動作完成，清空狀態
+#             elif status == NodeStatus.FAILURE:
+#                 self.active_sub_node = None
+#                 self.current_path = [] # 動作失敗，清空路徑逼迫下一幀重算
+#             return NodeStatus.RUNNING
 
-        # ==========================================
-        # 3. 抵達目標平台，開始清怪
-        # ==========================================
-        target_platform = self.patrol_route[self.route_idx]
+#         # ==========================================
+#         # 3. 抵達目標平台，開始清怪
+#         # ==========================================
+#         target_platform = self.patrol_route[self.route_idx]
 
-        if current_platform == target_platform:
-            p_info = navigator.platforms[current_platform]
-            mid_x = (p_info["x_max"] + p_info["x_min"]) / 2
-            direction = "left" if gps_px > mid_x else "right"
-            bound_x = p_info["x_min"] if direction == "left" else p_info["x_max"]
+#         if current_platform == target_platform:
+#             p_info = navigator.platforms[current_platform]
+#             mid_x = (p_info["x_max"] + p_info["x_min"]) / 2
+#             direction = "left" if gps_px > mid_x else "right"
+#             bound_x = p_info["x_min"] if direction == "left" else p_info["x_max"]
 
-            print(f"🎯 抵達目標 {target_platform}，開始清怪！")
-            self.active_sub_node = ClearPlatformNode(direction, bound_x)
+#             print(f"🎯 抵達目標 {target_platform}，開始清怪！")
+#             self.active_sub_node = ClearPlatformNode(direction, bound_x)
             
-            # 清怪時，合法的平台就只有當前這個平台
-            self.expected_platforms = {current_platform}
+#             # 清怪時，合法的平台就只有當前這個平台
+#             self.expected_platforms = {current_platform}
             
-            # 準備下一個目標
-            self.route_idx = (self.route_idx + 1) % len(self.patrol_route)
-            return NodeStatus.RUNNING
+#             # 準備下一個目標
+#             self.route_idx = (self.route_idx + 1) % len(self.patrol_route)
+#             return NodeStatus.RUNNING
 
-        # ==========================================
-        # 4. 需要大腦規劃路徑
-        # ==========================================
-        if not self.current_path and current_platform is not None:
-            self.current_path = navigator.find_path(current_platform, target_platform)
-            if not self.current_path:
-                print(f"🚨 找不到從 {current_platform} 到 {target_platform} 的路徑！")
-                return NodeStatus.FAILURE
+#         # ==========================================
+#         # 4. 需要大腦規劃路徑
+#         # ==========================================
+#         if not self.current_path and current_platform is not None:
+#             self.current_path = navigator.find_path(current_platform, target_platform)
+#             if not self.current_path:
+#                 print(f"🚨 找不到從 {current_platform} 到 {target_platform} 的路徑！")
+#                 return NodeStatus.FAILURE
 
-        # ==========================================
-        # 5. 按照路徑派發下一步動作
-        # ==========================================
-        if self.current_path:
-            next_step = self.current_path.pop(0)
-            target_p = next_step['to']
-            target_y = navigator.platforms[target_p]['y']
+#         # ==========================================
+#         # 5. 按照路徑派發下一步動作
+#         # ==========================================
+#         if self.current_path:
+#             next_step = self.current_path.pop(0)
+#             target_p = next_step['to']
+#             target_y = navigator.platforms[target_p]['y']
             
-            print(f"🚶 執行: {next_step['action']} 前往 {target_p}")
+#             print(f"🚶 執行: {next_step['action']} 前往 {target_p}")
 
-            if next_step['action'] == "JUMP_DOWN":
-                self.active_sub_node = JumpDownNode(target_y)
-            elif next_step['action'] == "CLIMB_ROPE":
-                self.active_sub_node = NavigateUpNode(next_step['trigger_x'], target_y)
+#             if next_step['action'] == "JUMP_DOWN":
+#                 self.active_sub_node = JumpDownNode(target_y)
+#             elif next_step['action'] == "CLIMB_ROPE":
+#                 self.active_sub_node = NavigateUpNode(next_step['trigger_x'], target_y)
 
-            # 💡 設定動作期間的合法平台：起點與終點都算合法
-            self.expected_platforms = {current_platform, target_p}
+#             # 💡 設定動作期間的合法平台：起點與終點都算合法
+#             self.expected_platforms = {current_platform, target_p}
 
-        return NodeStatus.RUNNING
+#         return NodeStatus.RUNNING

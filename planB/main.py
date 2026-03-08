@@ -1,6 +1,5 @@
 import time
 import numpy as np
-import random
 import keyboard
 import tomllib
 
@@ -41,10 +40,10 @@ class MapleBot:
         patrol_sequence = MemorySequence([
             ClearPlatformNode('left', self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
             JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
-            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]),                           # 3. 中層向右清
+            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
             NavigateUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
             ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
-            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]),                                 # 6. 高平台向左清
+            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
             NavigateUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
             ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         ])
@@ -82,6 +81,9 @@ class MapleBot:
                     print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
                     self.controller.update_movement(None)
                     time.sleep(0.5)
+
+                if keyboard.is_pressed("f12"):
+                    break
 
                 if is_paused:
                     time.sleep(0.1)
