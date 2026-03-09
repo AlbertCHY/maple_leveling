@@ -38,14 +38,14 @@ class MapleBot:
         
         # 核心巡邏迴圈
         patrol_sequence = MemorySequence([
-            ClearPlatformNode('left', self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
+            ClearPlatformNode("left", self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
             JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
-            ClearPlatformNode('right', self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
+            ClearPlatformNode("right", self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
             NavigateUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
-            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
-            ClearPlatformNode('left', self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
+            ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
+            ClearPlatformNode("left", self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
             NavigateUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
-            ClearPlatformNode('right', self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
+            ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         ])
 
         # 根節點：決定當下最高優先級的行為
@@ -76,9 +76,9 @@ class MapleBot:
         try:
             while True:
                 # === 暫停開關 ===
-                if keyboard.is_pressed('f11'):
+                if keyboard.is_pressed("f11"):
                     is_paused = not is_paused
-                    print(f"\n[狀態切換] AI {'暫停中' if is_paused else '運作中'}")
+                    print(f"\n[狀態切換] AI {"暫停中" if is_paused else "運作中"}")
                     self.controller.update_movement(None)
                     time.sleep(0.5)
 
@@ -96,27 +96,27 @@ class MapleBot:
                 yolo_data = self.vision.get_vision(frame_np)
                 gps_data = self.gps.parse(frame_np)
                 
-                if not gps_data['player']:
+                if not gps_data["player"]:
                     continue
-                print(f"\r小地圖位置: {gps_data['player']} \033[K", end="")
+                print(f"\r小地圖位置: {gps_data["player"]} \033[K", end="")
 
                 # 驅動行為樹
                 context = {
-                'controller': self.controller,
-                'combat': self.combat,
-                'gps_px': gps_data['player'][0],
-                'gps_py': gps_data['player'][1],
-                'yolo_player': yolo_data['player'],
-                'yolo_monsters': yolo_data['monsters']
+                "controller": self.controller,
+                "combat": self.combat,
+                "gps_px": gps_data["player"][0],
+                "gps_py": gps_data["player"][1],
+                "yolo_player": yolo_data["player"],
+                "yolo_monsters": yolo_data["monsters"]
                 }
                 # context = {
-                # 'controller': self.controller,
-                # 'combat': self.combat,
-                # 'gps_px': gps_data['player'][0],
-                # 'gps_py': gps_data['player'][1],
-                # 'yolo_player': yolo_data['player'],
-                # 'yolo_monsters': yolo_data['monsters'],
-                # 'navigator': self.navigator
+                # "controller": self.controller,
+                # "combat": self.combat,
+                # "gps_px": gps_data["player"][0],
+                # "gps_py": gps_data["player"][1],
+                # "yolo_player": yolo_data["player"],
+                # "yolo_monsters": yolo_data["monsters"],
+                # "navigator": self.navigator
                 # }
                 
                 self.root.tick(context)

@@ -44,7 +44,7 @@ class GameDataCollector:
         img_count = 0
         while True:
             # 監聽退出鍵
-            if keyboard.is_pressed('esc'):
+            if keyboard.is_pressed("esc"):
                 print("\n[系統提示] 退出程式，辛苦了！")
                 break
 

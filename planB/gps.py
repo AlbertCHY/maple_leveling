@@ -55,4 +55,4 @@ class MinimapParser:
 #     parser = MinimapParser(region=(10, 165, 270, 255))
 #     test_image = cv2.imread("test.png")
 #     result = parser.parse(test_image)
-#     print(f"玩家 GPS 座標: {result['player']}")
+#     print(f"玩家 GPS 座標: {result["player"]}")

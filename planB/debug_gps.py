@@ -73,7 +73,7 @@ class MinimapDebugger:
 
             cv2.imshow("GPS Radar (Left: Vision, Right: Mask)", combined_resized)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
         cv2.destroyAllWindows()

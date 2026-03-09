@@ -20,7 +20,7 @@ class CombatTargeting:
         """
         :param player_pos: 玩家座標 (x_center, y_center, width, height)
         :param monsters_pos: 怪物陣列，格式為 [(x_center, y_center, w, h), ...]
-        :param direction: 'right' 或 'left'
+        :param direction: "right" 或 "left"
         :return: (是否在攻擊範圍內, 是否需要跳躍攻擊)
         """
         if not player_pos or not monsters_pos:
@@ -31,9 +31,9 @@ class CombatTargeting:
 
         # 1. 根據巡邏方向與Y軸範圍過濾怪物
         for mx, my, mw, _ in monsters_pos:
-            if direction == 'right' and mx > px and py - my < self.y_diff_higher and my - py < self.y_diff_lower:
+            if direction == "right" and mx > px and py - my < self.y_diff_higher and my - py < self.y_diff_lower:
                 valid_targets.append((mx, my, mw))
-            elif direction == 'left' and mx < px and py - my < self.y_diff_higher and my - py < self.y_diff_lower:
+            elif direction == "left" and mx < px and py - my < self.y_diff_higher and my - py < self.y_diff_lower:
                 valid_targets.append((mx, my, mw))
 
         if not valid_targets:

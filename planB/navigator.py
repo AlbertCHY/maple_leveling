@@ -4,7 +4,7 @@ from collections import deque
 class Navigator:
     def __init__(self, map_file_path):
         """讀取地圖地理資料並建立 NavGraph"""
-        with open(map_file_path, 'r', encoding='utf-8') as f:
+        with open(map_file_path, "r", encoding="utf-8") as f:
             self.map_data = json.load(f)
             
         self.platforms = self.map_data.get("platforms", {})

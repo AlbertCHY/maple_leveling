@@ -5,7 +5,7 @@ class BuffTask:
     def __init__(self, name, keys, window_start, window_end, base_cast_delay):
         """
         :param name: BUFF 名稱 (除錯用)
-        :param keys: 技能按鍵列表，例如 ['q', 'w', 'e', 'r']
+        :param keys: 技能按鍵列表，例如 ["q", "w", "e", "r"]
         :param window_start: 隨機觸發區間的下限 (秒)
         :param window_end: 隨機觸發區間的上限 (秒)
         :param base_cast_delay: 技能施放的基礎動畫時間

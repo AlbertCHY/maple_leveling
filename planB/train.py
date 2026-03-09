@@ -14,7 +14,7 @@ def main():
 
     print("🚀 步驟 2: 載入 YOLOv8m 預訓練模型...")
     # 使用中型模型，獲得更好的特徵擷取能力
-    model = YOLO('yolov8m.pt') 
+    model = YOLO("yolov8m.pt") 
 
     print("🔥 步驟 3: RTX 4070 啟動，開始正式訓練！")
     # 關鍵超參數設定
@@ -30,5 +30,5 @@ def main():
     
     print("🎉 訓練大功告成！最好的權重已經存放在 runs/detect/train/weights/best.pt")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

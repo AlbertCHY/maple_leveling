@@ -10,7 +10,7 @@ SCREEN_REGION = {"top": 22, "left": 0, "width": 2560, "height": 1370}
 class GamePerception:
     def __init__(self, model_path="runs/detect/train4/weights/best.pt"):
         print("載入 YOLO 大腦中...")
-        # 載入你剛剛訓練好的最強權重
+        # 載入訓練好的最佳權重
         self.model = YOLO(model_path)
         self.sct = mss.mss()
         # 預設抓取主螢幕，如果你的遊戲在特定位置，這裡可以改成對應的 bounding box

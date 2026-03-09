@@ -29,7 +29,7 @@ class MapMapper:
         """抓取當下的小地圖座標"""
         frame = np.array(self.sct.grab(self.screen_region))
         gps_data = self.gps.parse(frame)
-        return gps_data.get('player')
+        return gps_data.get("player")
 
     def run(self):
         print("\n=== 快捷鍵說明 ===")
@@ -39,7 +39,7 @@ class MapMapper:
         print("[ESC]: 儲存並退出")
         
         while True:
-            if keyboard.is_pressed('f8'):
+            if keyboard.is_pressed("f8"):
                 pos = self.get_current_gps()
                 if pos:
                     self.temp_x_min = pos[0]
@@ -48,7 +48,7 @@ class MapMapper:
                     print(f"✅ 已記錄起點。請走到平台右邊緣並按下 F9。")
                 time.sleep(0.5)
 
-            elif keyboard.is_pressed('f9'):
+            elif keyboard.is_pressed("f9"):
                 pos = self.get_current_gps()
                 if pos and self.temp_x_min is not None:
                     x_max = pos[0]
@@ -61,7 +61,7 @@ class MapMapper:
                     self.temp_x_min = None # 重置
                 time.sleep(0.5)
 
-            elif keyboard.is_pressed('f10'):
+            elif keyboard.is_pressed("f10"):
                 pos = self.get_current_gps()
                 if pos:
                     print(f"\n🔗 抓取到連接點 {pos}")
@@ -78,8 +78,8 @@ class MapMapper:
                     print(f"✅ 連接點儲存成功！")
                 time.sleep(0.5)
 
-            elif keyboard.is_pressed('esc'):
-                with open('config/map_bonedragon.json', 'w', encoding='utf-8') as f:
+            elif keyboard.is_pressed("esc"):
+                with open("config/map_bonedragon.json", "w", encoding="utf-8") as f:
                     json.dump(self.map_data, f, indent=4, ensure_ascii=False)
                 print("\n💾 地圖資料已成功儲存至 config/map_bonedragon.json！ 退出程式。")
                 break
