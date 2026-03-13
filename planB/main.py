@@ -13,7 +13,7 @@ from combat import CombatTargeting
 
 # 匯入全新的行為樹模組
 from behavior_tree import Selector, MemorySequence
-from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, NavigateUpNode
+from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, RopeUpNode
 
 class MapleBot:
     def __init__(self):
@@ -23,7 +23,7 @@ class MapleBot:
 
         self.vision = GamePerception.from_config(self.config)
         self.gps = MinimapParser.from_config(self.config)
-        # self.navigator = Navigator()
+        # self.navigator = Navigator("config/map_bonedragon.json")
         self.controller = HumanizedController()
         self.buff_manager = BuffManager.from_config(self.config, self.controller)
         self.combat = CombatTargeting.from_config(self.config)
@@ -41,10 +41,10 @@ class MapleBot:
             ClearPlatformNode("left", self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
             JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
             ClearPlatformNode("right", self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
-            NavigateUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
+            RopeUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
             ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
             ClearPlatformNode("left", self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
-            NavigateUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
+            RopeUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
             ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         ])
 
@@ -121,7 +121,7 @@ class MapleBot:
                 
                 self.root.tick(context)
 
-                # 控制迴圈頻率6
+                # 控制迴圈頻率
                 time.sleep(0.02)
 
         except KeyboardInterrupt:

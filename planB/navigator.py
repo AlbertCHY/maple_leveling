@@ -24,12 +24,18 @@ class Navigator:
             return None
             
         for p_id, p_data in self.platforms.items():
-            # 判斷 Y 軸是否在平台容差範圍內 (假設平台高度會有 ±10 的浮動)
-            if abs(gps_py - p_data["y"]) <= 10:
+            # 判斷 Y 軸是否在平台容差範圍內 (假設平台高度會有 ±5 的浮動)
+            if abs(gps_py - p_data["y"]) <= 5:
                 # 判斷 X 軸是否在平台左右邊界內
                 if p_data["x_min"] <= gps_px <= p_data["x_max"]:
                     return p_id
         return None
+    
+    def get_target_platform_xy(self, target_p_id):
+        platform_data = self.platforms[target_p_id]
+        x = (platform_data["x_max"] + platform_data["x_min"]) / 2
+        y = platform_data["y"]
+        return x, y
 
     def find_path(self, start_p_id, target_p_id):
         """
