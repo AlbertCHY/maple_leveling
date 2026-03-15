@@ -9,11 +9,11 @@ from gps import MinimapParser
 from controller import HumanizedController
 from buff import BuffManager
 from combat import CombatTargeting
-# from navigator import Navigator
+from navigator import Navigator
 
 # 匯入全新的行為樹模組
 from behavior_tree import Selector, MemorySequence
-from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, RopeUpNode
+from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, RopeUpNode, DynamicPatrolNode
 
 class MapleBot:
     def __init__(self):
@@ -23,7 +23,7 @@ class MapleBot:
 
         self.vision = GamePerception.from_config(self.config)
         self.gps = MinimapParser.from_config(self.config)
-        # self.navigator = Navigator("config/map_bonedragon.json")
+        self.navigator = Navigator("config/map_bonedragon.json")
         self.controller = HumanizedController()
         self.buff_manager = BuffManager.from_config(self.config, self.controller)
         self.combat = CombatTargeting.from_config(self.config)
@@ -36,35 +36,35 @@ class MapleBot:
     def _build_behavior_tree(self):
         """將你的巡邏路線像樂高一樣組裝起來"""
         
-        # 核心巡邏迴圈
-        patrol_sequence = MemorySequence([
-            ClearPlatformNode("left", self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
-            JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
-            ClearPlatformNode("right", self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
-            RopeUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
-            ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
-            ClearPlatformNode("left", self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
-            RopeUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
-            ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
-        ])
-
-        # 根節點：決定當下最高優先級的行為
-        self.root = Selector([
-            BuffNode(self.buff_manager),            # 優先級 1：施放 BUFF (打怪前先上狀態)
-            FallRecoveryNode(                       # 優先級 2：掉落救援
-                self.constants["MID_BOT_BOUND_Y"],
-                self.constants["ROPE_RESCUE_X"],
-                self.constants["ROPE_RESCUE_Y"],
-                patrol_sequence,
-                2                                   # 掉落救援結束後，巡邏流程從第 3 步 (中層向右清) 繼續
-            ), 
-            patrol_sequence                         # 優先級 3：正常巡邏與打怪
-        ])
-
-        # self.root = Selector([
-        #     BuffNode(self.buff_manager),
-        #     DynamicPatrolNode(["P_TOP_LEFT", "P_MID_RIGHT", "P_TOP_RIGHT"]) # 傳入巡邏迴圈
+        # # 核心巡邏迴圈
+        # patrol_sequence = MemorySequence([
+        #     ClearPlatformNode("left", self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
+        #     JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
+        #     ClearPlatformNode("right", self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
+        #     RopeUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
+        #     ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清
+        #     ClearPlatformNode("left", self.constants["ROPE_TO_TOP_X"]+10),                                 # 6. 高平台向左清
+        #     RopeUpNode(self.constants["ROPE_TO_TOP_X"], self.constants["ROPE_TO_TOP_Y"]),           # 7. 爬繩回上層
+        #     ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"])                                 # 8. 上層向右清
         # ])
+
+        # # 根節點：決定當下最高優先級的行為
+        # self.root = Selector([
+        #     BuffNode(self.buff_manager),            # 優先級 1：施放 BUFF (打怪前先上狀態)
+        #     FallRecoveryNode(                       # 優先級 2：掉落救援
+        #         self.constants["MID_BOT_BOUND_Y"],
+        #         self.constants["ROPE_RESCUE_X"],
+        #         self.constants["ROPE_RESCUE_Y"],
+        #         patrol_sequence,
+        #         2                                   # 掉落救援結束後，巡邏流程從第 3 步 (中層向右清) 繼續
+        #     ), 
+        #     patrol_sequence                         # 優先級 3：正常巡邏與打怪
+        # ])
+
+        self.root = Selector([
+            BuffNode(self.buff_manager),
+            DynamicPatrolNode(["P_TOP", "P_MID_1", "P_MID_2", "P_MID_3", "P_MID_6"]) # 傳入巡邏迴圈
+        ])
 
     def run(self):
         print("=== Maple Leveler (行為樹版) 啟動 ===")
@@ -101,23 +101,23 @@ class MapleBot:
                 print(f"\r小地圖位置: {gps_data["player"]} \033[K", end="")
 
                 # 驅動行為樹
-                context = {
-                "controller": self.controller,
-                "combat": self.combat,
-                "gps_px": gps_data["player"][0],
-                "gps_py": gps_data["player"][1],
-                "yolo_player": yolo_data["player"],
-                "yolo_monsters": yolo_data["monsters"]
-                }
                 # context = {
                 # "controller": self.controller,
                 # "combat": self.combat,
                 # "gps_px": gps_data["player"][0],
                 # "gps_py": gps_data["player"][1],
                 # "yolo_player": yolo_data["player"],
-                # "yolo_monsters": yolo_data["monsters"],
-                # "navigator": self.navigator
+                # "yolo_monsters": yolo_data["monsters"]
                 # }
+                context = {
+                "controller": self.controller,
+                "combat": self.combat,
+                "gps_px": gps_data["player"][0],
+                "gps_py": gps_data["player"][1],
+                "yolo_player": yolo_data["player"],
+                "yolo_monsters": yolo_data["monsters"],
+                "navigator": self.navigator
+                }
                 
                 self.root.tick(context)
 
