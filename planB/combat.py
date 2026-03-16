@@ -42,7 +42,7 @@ class CombatTargeting:
         # 使用 lambda 函數快速按距離排序
         closest_monster = min(valid_targets, key=lambda m: abs(m[0] - px))
         tx, ty, tw = closest_monster
-        print(f"玩家中心點: ({px}, {py}), 最近怪物中心點: ({tx}, {ty})\033[K", end="")
+        # print(f"玩家中心點: ({px}, {py}), 最近怪物中心點: ({tx}, {ty})\033[K", end="")
         # 3. 計算距離
         distance_to_monster = abs(tx - px) - tw/2 # 減去怪物寬度的一半，得到邊緣距離
 

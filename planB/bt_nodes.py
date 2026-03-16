@@ -114,10 +114,9 @@ class ClearPlatformNode(Node):
     def __init__(self, direction, bound_x):
         self.direction = direction
         self.bound_x = bound_x
-        self.dynamic_bound = random.uniform(self.bound_x - 2, self.bound_x + 2)
+        self.dynamic_bound = self.bound_x + 5 if direction == "left" else self.bound_x - 5
         self.is_attacking = False
         self.attack_end_time = 0
-        self.bomb_counter = 0
 
     def tick(self, context):
         controller = context.get("controller")
@@ -142,18 +141,14 @@ class ClearPlatformNode(Node):
         if target_in_range:
             self.is_attacking = True
             self.attack_end_time = current_time + controller.get_guassian(0.7, 0.01, 0.65)
-            if self.bomb_counter == 3:
-                controller.jump_attack(self.direction, "s", timming=0.2)
-                self.bomb_counter = 0
+            if jump_or_not:
+                # print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
+                # controller.jump_attack(self.direction, "f", timming=0.01)
+                pass
             else:
-                if jump_or_not:
-                    print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
-                    controller.jump_attack(self.direction, "f", timming=0.01)
-                else:
-                    print(f"⚔️ [{self.direction.upper()}] 攻擊！")
-                    controller.update_movement(None)
-                    controller.tap_key("f")
-                self.bomb_counter += 1
+                # print(f"⚔️ [{self.direction.upper()}] 攻擊！")
+                # controller.update_movement(None)
+                controller.tap_key("f")
         else:
             controller.update_movement(self.direction) # 繼續走
             self.bomb_counter = 0
@@ -163,6 +158,7 @@ class ClearPlatformNode(Node):
                (self.direction == "right" and gps_px >= self.dynamic_bound):
                 controller.update_movement(None)
                 self.dynamic_bound = random.uniform(self.bound_x - 2, self.bound_x + 2) # 重新骰一次下次的邊界
+                print("Platform Clean")
                 return NodeStatus.SUCCESS # 走到盡頭了，任務完成！
             
         return NodeStatus.RUNNING # 還在清怪中
@@ -170,8 +166,8 @@ class ClearPlatformNode(Node):
 class JumpDownNode(Node):
     """下跳節點"""
     def __init__(self, trigger_x, target_floor_y):
-        self.trigger_x = random.uniform(trigger_x - 3, trigger_x + 3)
-        self.target_floor_y = target_floor_y - 5 # 忽視平台Y軸誤差
+        self.trigger_x = int(random.uniform(trigger_x - 3, trigger_x + 3))
+        self.target_floor_y = target_floor_y - 10 # 忽視平台Y軸誤差
 
     def tick(self, context):
         controller = context.get("controller")
@@ -189,7 +185,7 @@ class JumpDownNode(Node):
             controller.update_movement(None)
             print(f"⬇️ 抵達下跳點 {self.trigger_x}，執行下跳！")
             controller.jump_down()
-            time.sleep(0.4) # 等待落地動畫，防止半空連按
+            time.sleep(0.6) # 等待落地動畫，防止半空連按
         # 前往下跳點
         else:
             if distance > 0:
@@ -370,6 +366,7 @@ class DynamicPatrolNode(Node):
         # 2. 執行子動作
         # ==========================================
         if self.active_sub_node is not None:
+            print(f"\r執行 {self.active_sub_node} 中 \033[K", end="")
             status = self.active_sub_node.tick(context)
             if status == NodeStatus.SUCCESS:
                 self.active_sub_node = None # 動作完成，清空狀態
@@ -414,7 +411,7 @@ class DynamicPatrolNode(Node):
         if self.current_path:
             next_step = self.current_path.pop(0)
             target_p = next_step.get("to")
-            platform_y = next_step.get("y")
+            _, platform_y = navigator.get_target_platform_xy(target_p)
             action = next_step.get("action")
             trigger_x = next_step.get("trigger_x")
             

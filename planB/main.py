@@ -100,7 +100,7 @@ class MapleBot:
                 
                 if not gps_data["player"]:
                     continue
-                print(f"\r小地圖位置: {gps_data["player"]} \033[K", end="")
+                # print(f"\r小地圖位置: {gps_data["player"]} \033[K", end="")
 
                 # 驅動行為樹
                 context = {
