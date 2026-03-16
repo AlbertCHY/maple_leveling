@@ -6,40 +6,40 @@ from behavior_tree import Node, NodeStatus
 # ==========================================
 # 1. 優先級中斷節點 (Interrupt Nodes)
 # ==========================================
-class FallRecoveryNode(Node):
-    """底層救援節點 (包裝了 RopeUpNode)"""
-    def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
-        self.activate_y = activate_y
-        self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
-        self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
-        self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
-        self.is_recovering = False
+# class FallRecoveryNode(Node):
+#     """底層救援節點 (包裝了 RopeUpNode)"""
+#     def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
+#         self.activate_y = activate_y
+#         self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
+#         self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
+#         self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
+#         self.is_recovering = False
 
-    def tick(self, context):
-        gps_py = context.get("gps_py")
+#     def tick(self, context):
+#         gps_py = context.get("gps_py")
 
-        # 1. 觸發條件：掉到底層，鎖定進入救援狀態
-        if gps_py >= self.activate_y:
-            self.is_recovering = True
+#         # 1. 觸發條件：掉到底層，鎖定進入救援狀態
+#         if gps_py >= self.activate_y:
+#             self.is_recovering = True
 
-        # 2. 執行救援
-        if self.is_recovering:
-            print("[行為樹] 執行底層救援中...")
+#         # 2. 執行救援
+#         if self.is_recovering:
+#             print("[行為樹] 執行底層救援中...")
             
-            # 把 context 轉交給肚子裡的 climb_node 去執行
-            status = self.climb_node.tick(context)
+#             # 把 context 轉交給肚子裡的 climb_node 去執行
+#             status = self.climb_node.tick(context)
             
-            if status == NodeStatus.SUCCESS:
-                # 爬到目標樓層了！解除救援狀態
-                self.is_recovering = False
-                self.patrol_sequence.current_idx = self.resume_index
-                print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
+#             if status == NodeStatus.SUCCESS:
+#                 # 爬到目標樓層了！解除救援狀態
+#                 self.is_recovering = False
+#                 self.patrol_sequence.current_idx = self.resume_index
+#                 print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
                 
-                return NodeStatus.SUCCESS
+#                 return NodeStatus.SUCCESS
                 
-            return NodeStatus.RUNNING # 還在爬
+#             return NodeStatus.RUNNING # 還在爬
 
-        return NodeStatus.FAILURE # 沒掉下去，沒事
+#         return NodeStatus.FAILURE # 沒掉下去，沒事
 
 class BuffNode(Node):
     """非阻塞式的 BUFF 施放節點"""
@@ -169,21 +169,33 @@ class ClearPlatformNode(Node):
 
 class JumpDownNode(Node):
     """下跳節點"""
-    def __init__(self, target_floor_y):
-        self.target_floor_y = target_floor_y
+    def __init__(self, trigger_x, target_floor_y):
+        self.trigger_x = random.uniform(trigger_x - 3, trigger_x + 3)
+        self.target_floor_y = target_floor_y - 5 # 忽視平台Y軸誤差
 
     def tick(self, context):
         controller = context.get("controller")
+        gps_px = context.get("gps_px")
         gps_py = context.get("gps_py")
 
         # 如果已經到達目標樓層，重置狀態並回傳成功
         if gps_py >= self.target_floor_y:
             return NodeStatus.SUCCESS
 
-        # 如果還在上層，執行跳躍並等待落地
-        else:
+        distance = gps_px - self.trigger_x
+
+        # 抵達目標，停下腳步並執行下跳
+        if abs(distance) <= 5:
+            controller.update_movement(None)
+            print(f"⬇️ 抵達下跳點 {self.trigger_x}，執行下跳！")
             controller.jump_down()
-            time.sleep(0.3) # 等待落地動畫，防止半空連按
+            time.sleep(0.4) # 等待落地動畫，防止半空連按
+        # 前往下跳點
+        else:
+            if distance > 0:
+                controller.update_movement("left")
+            else:
+                controller.update_movement("right")
             
         return NodeStatus.RUNNING
 
@@ -245,7 +257,7 @@ class RopeUpNode(Node):
     """導航爬繩節點"""
     def __init__(self, target_rope_x, target_floor_y):
         self.target_rope_x = target_rope_x
-        self.target_floor_y = target_floor_y
+        self.target_floor_y = target_floor_y + 5 # 忽視平台Y軸誤差
         self.is_climbing = False # 是否正在爬繩狀態
         self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
         self.last_jump_time = 0 # 記錄起跳時間
@@ -280,11 +292,10 @@ class RopeUpNode(Node):
                     controller.hold_key_start("up")
                     self.is_climbing = True
                     self.last_jump_time = current_time
-                    self.prev_y = gps_py
                 else:
                     if current_time - self.last_jump_time > 0.8:
                         # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
-                        if  gps_py >= self.prev_y:
+                        if  gps_py > self.prev_y:
                             controller.hold_key_end("up")
                             self.is_climbing = False
             else:
@@ -309,7 +320,7 @@ class DynamicPatrolNode(Node):
         self.current_path = []            
         self.active_sub_node = None       
         
-        # 💡 新增：用來記錄當前動作「合法」的所在平台
+        # 記錄當前動作「合法」的所在平台
         self.expected_platforms = set()   
 
     def _find_nearest_route_index(self, current_platform, navigator, gps_x, gps_y):
@@ -339,17 +350,17 @@ class DynamicPatrolNode(Node):
         current_platform = navigator.get_current_platform(gps_px, gps_py)
 
         # ==========================================
-        # 1. 位置守門員：檢查是否偏離路線 (解決問題 1)
+        # 1. 檢查是否偏離路線
         # ==========================================
         if self.active_sub_node is not None and current_platform is not None:
             if current_platform not in self.expected_platforms:
-                print(f"⚠️ 遭到擊飛或偏離路線！目前在 {current_platform}，預期在 {self.expected_platforms}")
+                print(f"⚠️ 偏離路線！目前在 {current_platform}，預期在 {self.expected_platforms}")
                 
                 # 強制中斷當前動作與路徑
                 self.active_sub_node = None
                 self.current_path = []
                 
-                # 💡 動態重算最近的巡邏點 (解決問題 2)
+                # 💡 動態重算最近的巡邏點
                 self.route_idx = self._find_nearest_route_index(current_platform, navigator, gps_px, gps_py)
                 print(f"🔄 重新規劃路線，改為前往最近的巡邏點: {self.patrol_route[self.route_idx]}")
                 
@@ -402,19 +413,20 @@ class DynamicPatrolNode(Node):
         # ==========================================
         if self.current_path:
             next_step = self.current_path.pop(0)
-            target_p = next_step["to"]
-            target_y = navigator.platforms[target_p]["y"]
-            action = next_step['action']
+            target_p = next_step.get("to")
+            platform_y = next_step.get("y")
+            action = next_step.get("action")
+            trigger_x = next_step.get("trigger_x")
             
             print(f"🚶 執行: {next_step["action"]} 前往 {target_p}")
 
             if action == "JUMP_DOWN":
-                self.active_sub_node = JumpDownNode(target_y)
+                self.active_sub_node = JumpDownNode(trigger_x, platform_y)
             elif action == "CLIMB_ROPE":
-                self.active_sub_node = RopeUpNode(next_step["trigger_x"], target_y)
-            # elif action in ["JUMP_LEFT", "JUMP_RIGHT"]:
-            #     direction = "left" if action == "JUMP_LEFT" else "right"
-            #     self.active_sub_node = JumpToPlatformNode(next_step['trigger_x'], direction, target_p)
+                self.active_sub_node = RopeUpNode(trigger_x, platform_y)
+            elif action in ["JUMP_LEFT", "JUMP_RIGHT"]:
+                direction = "left" if action == "JUMP_LEFT" else "right"
+                self.active_sub_node = JumpToPlatformNode(trigger_x, direction, target_p)
 
             # 💡 設定動作期間的合法平台：起點與終點都算合法
             self.expected_platforms = {current_platform, target_p}

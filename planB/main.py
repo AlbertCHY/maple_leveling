@@ -11,9 +11,11 @@ from buff import BuffManager
 from combat import CombatTargeting
 from navigator import Navigator
 
-# 匯入全新的行為樹模組
-from behavior_tree import Selector, MemorySequence
-from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, RopeUpNode, DynamicPatrolNode
+# 匯入行為樹模組
+from behavior_tree import Selector
+from bt_nodes import BuffNode, DynamicPatrolNode
+# from behavior_tree import Selector, MemorySequence
+# from bt_nodes import FallRecoveryNode, BuffNode, ClearPlatformNode, JumpDownNode, RopeUpNode, DynamicPatrolNode
 
 class MapleBot:
     def __init__(self):
@@ -101,14 +103,6 @@ class MapleBot:
                 print(f"\r小地圖位置: {gps_data["player"]} \033[K", end="")
 
                 # 驅動行為樹
-                # context = {
-                # "controller": self.controller,
-                # "combat": self.combat,
-                # "gps_px": gps_data["player"][0],
-                # "gps_py": gps_data["player"][1],
-                # "yolo_player": yolo_data["player"],
-                # "yolo_monsters": yolo_data["monsters"]
-                # }
                 context = {
                 "controller": self.controller,
                 "combat": self.combat,
