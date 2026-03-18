@@ -110,13 +110,29 @@ class BuffNode(Node):
 # 2. 巡邏與動作節點 (Action Nodes)
 # ==========================================
 class ClearPlatformNode(Node):
-    """平台清怪節點"""
-    def __init__(self, direction, bound_x):
-        self.direction = direction
-        self.bound_x = bound_x
-        self.dynamic_bound = self.bound_x + 5 if direction == "left" else self.bound_x - 5
+    """雙向折返掃蕩清怪節點"""
+    def __init__(self, platform_info, exit_x):
+        self.platform_info = platform_info
+        self.exit_x = exit_x
         self.is_attacking = False
         self.attack_end_time = 0
+
+        self.attack_range = 20 # 根據攻擊距離提早結束
+        
+        # 決定初始清怪方向 (背對出口的方向)
+        mid_x = (platform_info["x_min"] + platform_info["x_max"]) / 2
+        self.phase = 1
+        if self.exit_x > mid_x:
+            # 出口偏右，先往左清
+            self.direction = "left"
+            self.bound_x = platform_info["x_min"] + self.attack_range
+        else:
+            # 出口偏左，先往右清
+            self.direction = "right"
+            self.bound_x = platform_info["x_max"] - self.attack_range
+            
+        # 賦予動態邊界 (加入常態分佈，防外掛偵測)
+        self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2)
 
     def tick(self, context):
         controller = context.get("controller")
@@ -126,47 +142,118 @@ class ClearPlatformNode(Node):
         yolo_monsters = context.get("yolo_monsters")
         current_time = time.time()
         
-        # 狀態檢查：如果正在攻擊，檢查動畫是否結束
+        # ==========================================
+        # 1. 戰鬥動畫狀態鎖
+        # ==========================================
         if self.is_attacking:
             if current_time >= self.attack_end_time:
                 self.is_attacking = False
-                return NodeStatus.RUNNING
             return NodeStatus.RUNNING
         
-        # 呼叫戰鬥邏輯
+        # ==========================================
+        # 2. 戰鬥大腦判定
+        # ==========================================
         target_in_range, jump_or_not = combat.find_target_and_check_range(
             yolo_player, yolo_monsters, self.direction
         )
 
         if target_in_range:
             self.is_attacking = True
-            self.attack_end_time = current_time + controller.get_guassian(0.7, 0.01, 0.65)
-            if jump_or_not:
-                # print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
-                # controller.jump_attack(self.direction, "f", timming=0.01)
-                pass
-            else:
-                # print(f"⚔️ [{self.direction.upper()}] 攻擊！")
-                # controller.update_movement(None)
-                controller.tap_key("f")
-        else:
-            controller.update_movement(self.direction) # 繼續走
-            self.bomb_counter = 0
-
-            # 檢查是否到達邊界
-            if (self.direction == "left" and gps_px <= self.dynamic_bound) or \
-               (self.direction == "right" and gps_px >= self.dynamic_bound):
-                controller.update_movement(None)
-                self.dynamic_bound = random.uniform(self.bound_x - 2, self.bound_x + 2) # 重新骰一次下次的邊界
-                print("Platform Clean")
-                return NodeStatus.SUCCESS # 走到盡頭了，任務完成！
+            self.attack_end_time = current_time + controller.get_guassian(0.6, 0.01, 0.55)
             
-        return NodeStatus.RUNNING # 還在清怪中
+            if jump_or_not:
+                print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
+                controller.jump_attack(self.direction, 'f', timming=0.01)
+            else:
+                print(f"⚔️ [{self.direction.upper()}] 攻擊！")
+                controller.update_movement(None)
+                controller.tap_key('f')
+        else:
+            # ==========================================
+            # 3. 尋敵移動與邊界折返邏輯
+            # ==========================================
+            controller.update_movement(self.direction) 
+
+            # 檢查是否到達當前方向的動態邊界
+            if (self.direction == 'left' and gps_px <= self.dynamic_bound) or \
+               (self.direction == 'right' and gps_px >= self.dynamic_bound):
+                
+                if self.phase == 1:
+                    # 第一階段完成 (抵達遠離出口的盡頭)，準備折返！
+                    print("🔄 抵達平台盡頭，開始折返清怪！")
+                    self.phase = 2
+                    self.direction = "right" if self.direction == "left" else "left"
+                    
+                    # 將目標邊界設為另一端的盡頭
+                    self.bound_x = self.platform_info["x_max"] if self.direction == "right" else self.platform_info["x_min"]
+                    self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2)
+                    
+                elif self.phase == 2:
+                    # 雙向清怪完畢！停下腳步並結束任務
+                    print("✅ 平台掃蕩完畢！")
+                    controller.update_movement(None)
+                    return NodeStatus.SUCCESS 
+            
+        return NodeStatus.RUNNING
+
+# class ClearPlatformNode(Node):
+#     """平台清怪節點"""
+#     def __init__(self, direction, bound_x):
+#         self.direction = direction
+#         self.bound_x = bound_x
+#         self.dynamic_bound = self.bound_x + 10 if direction == "left" else self.bound_x - 10
+#         self.is_attacking = False
+#         self.attack_end_time = 0
+
+#     def tick(self, context):
+#         controller = context.get("controller")
+#         combat = context.get("combat")
+#         gps_px = context.get("gps_px")
+#         yolo_player = context.get("yolo_player")
+#         yolo_monsters = context.get("yolo_monsters")
+#         current_time = time.time()
+        
+#         # 狀態檢查：如果正在攻擊，檢查動畫是否結束
+#         if self.is_attacking:
+#             if current_time >= self.attack_end_time:
+#                 self.is_attacking = False
+#                 return NodeStatus.RUNNING
+#             return NodeStatus.RUNNING
+        
+#         # 呼叫戰鬥邏輯
+#         target_in_range, jump_or_not = combat.find_target_and_check_range(
+#             yolo_player, yolo_monsters, self.direction
+#         )
+
+#         if target_in_range:
+#             self.is_attacking = True
+#             self.attack_end_time = current_time + controller.get_guassian(0.7, 0.01, 0.65)
+#             if jump_or_not:
+#                 # print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
+#                 # controller.jump_attack(self.direction, "f", timming=0.01)
+#                 pass
+#             else:
+#                 # print(f"⚔️ [{self.direction.upper()}] 攻擊！")
+#                 # controller.update_movement(None)
+#                 controller.tap_key("f")
+#         else:
+#             controller.update_movement(self.direction) # 繼續走
+#             self.bomb_counter = 0
+
+#             # 檢查是否到達邊界
+#             if (self.direction == "left" and gps_px <= self.dynamic_bound) or \
+#                (self.direction == "right" and gps_px >= self.dynamic_bound):
+#                 controller.update_movement(None)
+#                 self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2) # 重新骰一次下次的邊界
+#                 print("Platform Clean")
+#                 return NodeStatus.SUCCESS # 走到盡頭了，任務完成！
+            
+#         return NodeStatus.RUNNING # 還在清怪中
 
 class JumpDownNode(Node):
     """下跳節點"""
     def __init__(self, trigger_x, target_floor_y):
-        self.trigger_x = int(random.uniform(trigger_x - 3, trigger_x + 3))
+        self.trigger_x = random.randint(trigger_x - 3, trigger_x + 3)
         self.target_floor_y = target_floor_y - 10 # 忽視平台Y軸誤差
 
     def tick(self, context):
@@ -198,7 +285,7 @@ class JumpDownNode(Node):
 class JumpToPlatformNode(Node):
     """水平跳躍節點 (支援向左或向右跳)"""
     def __init__(self, trigger_x, direction, target_platform):
-        self.trigger_x = random.uniform(trigger_x - 3, trigger_x + 3)
+        self.trigger_x = random.randint(trigger_x - 3, trigger_x + 3)
         self.direction = direction
         self.target_platform = target_platform
         
@@ -382,18 +469,24 @@ class DynamicPatrolNode(Node):
 
         if current_platform == target_platform:
             platform_info = navigator.platforms[current_platform]
-            mid_x = (platform_info["x_max"] + platform_info["x_min"]) / 2
-            direction = "left" if gps_px > mid_x else "right"
-            bound_x = platform_info["x_min"] if direction == "left" else platform_info["x_max"]
 
-            print(f"🎯 抵達目標 {target_platform}，開始清怪！")
-            self.active_sub_node = ClearPlatformNode(direction, bound_x)
+            next_route_idx = (self.route_idx + 1) % len(self.patrol_route)
+            next_target_platform = self.patrol_route[next_route_idx]
+
+            lookahead_path = navigator.find_path(current_platform, next_target_platform)
+            if lookahead_path:
+                exit_x = lookahead_path[0].get("trigger_x")
+            else:
+                # 防呆：如果剛好是同一個平台或找不到路，以中心點為預設出口
+                exit_x = (platform_info["x_max"] + platform_info["x_min"]) / 2
+
+            print(f"🎯 抵達目標 {target_platform}，預判出口在 X={exit_x}，開始雙向清怪！")
             
-            # 清怪時，合法的平台就只有當前這個平台
+            # 將平台資訊與出口 X 座標傳給清怪節點
+            self.active_sub_node = ClearPlatformNode(platform_info, exit_x)
+            
             self.expected_platforms = {current_platform}
-            
-            # 準備下一個目標
-            self.route_idx = (self.route_idx + 1) % len(self.patrol_route)
+            self.route_idx = next_route_idx # 切換到下一個目標
             return NodeStatus.RUNNING
 
         # ==========================================
