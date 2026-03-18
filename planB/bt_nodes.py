@@ -117,7 +117,7 @@ class ClearPlatformNode(Node):
         self.is_attacking = False
         self.attack_end_time = 0
 
-        self.attack_range = 20 # 根據攻擊距離提早結束
+        self.attack_range = 30 # 根據攻擊距離提早結束
         
         # 決定初始清怪方向 (背對出口的方向)
         mid_x = (platform_info["x_min"] + platform_info["x_max"]) / 2
@@ -159,7 +159,7 @@ class ClearPlatformNode(Node):
 
         if target_in_range:
             self.is_attacking = True
-            self.attack_end_time = current_time + controller.get_guassian(0.6, 0.01, 0.55)
+            self.attack_end_time = current_time + controller.get_guassian(0.75, 0.01, 0.7)
             
             if jump_or_not:
                 print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
@@ -185,7 +185,7 @@ class ClearPlatformNode(Node):
                     self.direction = "right" if self.direction == "left" else "left"
                     
                     # 將目標邊界設為另一端的盡頭
-                    self.bound_x = self.platform_info["x_max"] if self.direction == "right" else self.platform_info["x_min"]
+                    self.bound_x = self.platform_info["x_max"] - self.attack_range if self.direction == "right" else self.platform_info["x_min"] + self.attack_range
                     self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2)
                     
                 elif self.phase == 2:
