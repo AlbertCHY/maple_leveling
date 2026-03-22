@@ -6,7 +6,7 @@ import os
 import keyboard
 
 CAPTURE_INTERVAL = 1  # 每次截圖的間隔時間 (秒)
-OUTPUT_DIR = "yolo_dataset/blackboar"  # 圖片存檔目錄
+OUTPUT_DIR = "yolo_dataset/bonedragon_2"  # 圖片存檔目錄
 SCREEN_REGION = {"top": 22, "left": 0, "width": 2560, "height": 1370} # 定義截圖區域
 class GameDataCollector:
     def __init__(self, output_dir, capture_interval):

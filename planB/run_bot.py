@@ -8,7 +8,7 @@ from ultralytics import YOLO
 SCREEN_REGION = {"top": 22, "left": 0, "width": 2560, "height": 1370}
 
 class GamePerception:
-    def __init__(self, model_path="runs/detect/train4/weights/best.pt"):
+    def __init__(self, model_path="runs/detect/train6/weights/best.pt"):
         print("載入 YOLO 大腦中...")
         # 載入訓練好的最佳權重
         self.model = YOLO(model_path)
@@ -27,7 +27,7 @@ class GamePerception:
 
         # 3. 進行預測 (conf=0.5 代表信心度大於 50% 才算數，過濾雜訊)
         # verbose=False 可以關閉終端機狂刷 log
-        results = self.model.predict(source=frame, conf=0.5, device=0, verbose=False)
+        results = self.model.predict(source=frame, conf=0.4, device=0, verbose=False)
 
         # 4. 解析座標
         perception_data = {

@@ -19,7 +19,7 @@ def main():
     print("🔥 步驟 3: RTX 4070 啟動，開始正式訓練！")
     # 關鍵超參數設定
     results = model.train(
-        data="roboflow_dataset/blackboar/data.yaml", # 自動抓取剛剛下載的路徑
+        data="roboflow_dataset/bonedragon_2/data.yaml", # 自動抓取剛剛下載的路徑
         epochs=150,      # 200張圖，我們跑 150 輪讓它充分學習
         imgsz=640,       # 保持 640x640 的標準輸入
         batch=16,        # 你的 RTX 4070 絕對吃得下 batch 16
