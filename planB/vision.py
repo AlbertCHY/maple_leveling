@@ -38,7 +38,7 @@ class GamePerception:
             # 根據名稱分類資料
             if name == "Player":
                 perception_data["player"] = tuple_xywh
-            elif name == "Mobs":
+            elif name == "bone_dragon":
                 perception_data["monsters"].append(tuple_xywh)
 
         return perception_data

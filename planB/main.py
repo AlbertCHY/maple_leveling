@@ -41,7 +41,7 @@ class MapleBot:
         # # 核心巡邏迴圈
         # patrol_sequence = MemorySequence([
         #     ClearPlatformNode("left", self.constants["BOUND_LEFT_X"]),                                  # 1. 上層向左清
-        #     JumpDownNode(self.constants["TOP_MID_BOUND_Y"]),                                            # 2. 下跳到中層
+        #     JumpDownNode(self.constants["BOUND_LEFT_X"], self.constants["TOP_MID_BOUND_Y"]),             # 2. 下跳到中層
         #     ClearPlatformNode("right", self.constants["ROPE_BETWEEN_MID_X"]-10),                           # 3. 中層向右清
         #     RopeUpNode(self.constants["ROPE_BETWEEN_MID_X"], self.constants["ROPE_BETWEEN_MID_Y"]), # 4. 爬繩到中層高平台
         #     ClearPlatformNode("right", self.constants["BOUND_RIGHT_X"]),                                # 5. 高平台向右清

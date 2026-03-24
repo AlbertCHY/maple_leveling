@@ -8,7 +8,7 @@ from ultralytics import YOLO
 SCREEN_REGION = {"top": 22, "left": 0, "width": 2560, "height": 1370}
 
 class GamePerception:
-    def __init__(self, model_path="runs/detect/train6/weights/best.pt"):
+    def __init__(self, model_path="runs/detect/train7/weights/best.pt"):
         print("載入 YOLO 大腦中...")
         # 載入訓練好的最佳權重
         self.model = YOLO(model_path)
@@ -45,9 +45,9 @@ class GamePerception:
             # .tolist() 確保 Tensor 轉換為原生 list，避免 map(int) 報錯
             x_center, y_center, w, h = map(int, box.xywh[0].tolist())
             
-            if name == 'player':
+            if name == 'Player':
                 perception_data["player"] = (x_center, y_center)
-            elif name == 'blackboar':
+            elif name == 'bone_dragon':
                 perception_data["monsters"].append((x_center, y_center))
 
         return frame, perception_data, results[0]

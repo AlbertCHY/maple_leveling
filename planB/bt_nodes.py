@@ -6,40 +6,40 @@ from behavior_tree import Node, NodeStatus
 # ==========================================
 # 1. 優先級中斷節點 (Interrupt Nodes)
 # ==========================================
-# class FallRecoveryNode(Node):
-#     """底層救援節點 (包裝了 RopeUpNode)"""
-#     def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
-#         self.activate_y = activate_y
-#         self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
-#         self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
-#         self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
-#         self.is_recovering = False
+class FallRecoveryNode(Node):
+    """底層救援節點 (包裝了 RopeUpNode)"""
+    def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
+        self.activate_y = activate_y
+        self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
+        self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
+        self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
+        self.is_recovering = False
 
-#     def tick(self, context):
-#         gps_py = context.get("gps_py")
+    def tick(self, context):
+        gps_py = context.get("gps_py")
 
-#         # 1. 觸發條件：掉到底層，鎖定進入救援狀態
-#         if gps_py >= self.activate_y:
-#             self.is_recovering = True
+        # 1. 觸發條件：掉到底層，鎖定進入救援狀態
+        if gps_py >= self.activate_y:
+            self.is_recovering = True
 
-#         # 2. 執行救援
-#         if self.is_recovering:
-#             print("[行為樹] 執行底層救援中...")
+        # 2. 執行救援
+        if self.is_recovering:
+            print("[行為樹] 執行底層救援中...")
             
-#             # 把 context 轉交給肚子裡的 climb_node 去執行
-#             status = self.climb_node.tick(context)
+            # 把 context 轉交給肚子裡的 climb_node 去執行
+            status = self.climb_node.tick(context)
             
-#             if status == NodeStatus.SUCCESS:
-#                 # 爬到目標樓層了！解除救援狀態
-#                 self.is_recovering = False
-#                 self.patrol_sequence.current_idx = self.resume_index
-#                 print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
+            if status == NodeStatus.SUCCESS:
+                # 爬到目標樓層了！解除救援狀態
+                self.is_recovering = False
+                self.patrol_sequence.current_idx = self.resume_index
+                print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
                 
-#                 return NodeStatus.SUCCESS
+                return NodeStatus.SUCCESS
                 
-#             return NodeStatus.RUNNING # 還在爬
+            return NodeStatus.RUNNING # 還在爬
 
-#         return NodeStatus.FAILURE # 沒掉下去，沒事
+        return NodeStatus.FAILURE # 沒掉下去，沒事
 
 class BuffNode(Node):
     """非阻塞式的 BUFF 施放節點"""
@@ -160,14 +160,16 @@ class ClearPlatformNode(Node):
         if target_in_range:
             self.is_attacking = True
             self.attack_end_time = current_time + controller.get_guassian(0.75, 0.01, 0.7)
+            controller.update_movement(None) 
+            controller.tap_key('f')
             
-            if jump_or_not:
-                print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
-                controller.jump_attack(self.direction, 'f', timming=0.01)
-            else:
-                print(f"⚔️ [{self.direction.upper()}] 攻擊！")
-                controller.update_movement(None)
-                controller.tap_key('f')
+            # if jump_or_not:
+            #     print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
+            #     controller.jump_attack(self.direction, 'f', timming=0.01)
+            # else:
+            #     print(f"⚔️ [{self.direction.upper()}] 攻擊！")
+            #     # controller.update_movement(None)
+            #     controller.tap_key('f')
         else:
             # ==========================================
             # 3. 尋敵移動與邊界折返邏輯
@@ -183,6 +185,7 @@ class ClearPlatformNode(Node):
                     print("🔄 抵達平台盡頭，開始折返清怪！")
                     self.phase = 2
                     self.direction = "right" if self.direction == "left" else "left"
+                    controller.update_movement(self.direction)
                     
                     # 將目標邊界設為另一端的盡頭
                     self.bound_x = self.platform_info["x_max"] - self.attack_range if self.direction == "right" else self.platform_info["x_min"] + self.attack_range
@@ -453,7 +456,7 @@ class DynamicPatrolNode(Node):
         # 2. 執行子動作
         # ==========================================
         if self.active_sub_node is not None:
-            print(f"\r執行 {self.active_sub_node} 中 \033[K", end="")
+            print(f"\r執行 {self.active_sub_node} \033[K", end="")
             status = self.active_sub_node.tick(context)
             if status == NodeStatus.SUCCESS:
                 self.active_sub_node = None # 動作完成，清空狀態

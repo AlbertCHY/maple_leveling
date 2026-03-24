@@ -5,7 +5,7 @@ width = 2560
 height = 1392
 
 [model] # 物件偵測模型
-path = "model/bone_dragon/weights/best.pt"
+path = "model/bone_dragon_2/weights/best.pt"
 conf = 0.5 # 信心指數
 
 [mini_map] # 小地圖顏色過濾
@@ -29,8 +29,9 @@ base_cast_delay = 0.85
 [combat] # 戰鬥相關
 safety_attack_range = 200 # 碰到怪前的安全攻擊距離
 skill_range = 550
-y_diff_higher = 200 # 允許鎖定高於多少Y的目標
-y_diff_lower = 150 # 允許鎖定低於多少Y的目標
+# y_diff_higher = 200 # 允許鎖定高於多少Y的目標
+# y_diff_lower = 150 # 允許鎖定低於多少Y的目標
+y_diff = 150
 attack_interval = 0.6 # 攻擊後等待時間
 
 [constant] # 地圖常數
@@ -45,3 +46,7 @@ ROPE_TO_TOP_X = 189
 ROPE_TO_TOP_Y = 88   
 ROPE_RESCUE_X = 206  
 ROPE_RESCUE_Y = 154
+
+#跳平台失敗會停住
+#會出現以為自己已經轉向開始找反方向的怪並嘗試攻擊
+#爬繩邏輯
