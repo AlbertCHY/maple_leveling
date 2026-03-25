@@ -6,40 +6,40 @@ from behavior_tree import Node, NodeStatus
 # ==========================================
 # 1. 優先級中斷節點 (Interrupt Nodes)
 # ==========================================
-class FallRecoveryNode(Node):
-    """底層救援節點 (包裝了 RopeUpNode)"""
-    def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
-        self.activate_y = activate_y
-        self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
-        self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
-        self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
-        self.is_recovering = False
+# class FallRecoveryNode(Node):
+#     """底層救援節點 (包裝了 RopeUpNode)"""
+#     def __init__(self, activate_y, target_rope_x, target_floor_y, patrol_sequence, resume_index):
+#         self.activate_y = activate_y
+#         self.climb_node = RopeUpNode(target_rope_x, target_floor_y)
+#         self.patrol_sequence = patrol_sequence # 傳入巡邏序列的參考，讓它能夠修改巡邏流程的記憶位置
+#         self.resume_index = resume_index # 掉落救援結束後，巡邏流程要從哪個步驟繼續
+#         self.is_recovering = False
 
-    def tick(self, context):
-        gps_py = context.get("gps_py")
+#     def tick(self, context):
+#         gps_py = context.get("gps_py")
 
-        # 1. 觸發條件：掉到底層，鎖定進入救援狀態
-        if gps_py >= self.activate_y:
-            self.is_recovering = True
+#         # 1. 觸發條件：掉到底層，鎖定進入救援狀態
+#         if gps_py >= self.activate_y:
+#             self.is_recovering = True
 
-        # 2. 執行救援
-        if self.is_recovering:
-            print("[行為樹] 執行底層救援中...")
+#         # 2. 執行救援
+#         if self.is_recovering:
+#             print("[行為樹] 執行底層救援中...")
             
-            # 把 context 轉交給肚子裡的 climb_node 去執行
-            status = self.climb_node.tick(context)
+#             # 把 context 轉交給肚子裡的 climb_node 去執行
+#             status = self.climb_node.tick(context)
             
-            if status == NodeStatus.SUCCESS:
-                # 爬到目標樓層了！解除救援狀態
-                self.is_recovering = False
-                self.patrol_sequence.current_idx = self.resume_index
-                print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
+#             if status == NodeStatus.SUCCESS:
+#                 # 爬到目標樓層了！解除救援狀態
+#                 self.is_recovering = False
+#                 self.patrol_sequence.current_idx = self.resume_index
+#                 print(f"\n✅ 救援完畢！記憶已覆寫，從步驟 {self.resume_index} 繼續。")
                 
-                return NodeStatus.SUCCESS
+#                 return NodeStatus.SUCCESS
                 
-            return NodeStatus.RUNNING # 還在爬
+#             return NodeStatus.RUNNING # 還在爬
 
-        return NodeStatus.FAILURE # 沒掉下去，沒事
+#         return NodeStatus.FAILURE # 沒掉下去，沒事
 
 class BuffNode(Node):
     """非阻塞式的 BUFF 施放節點"""
@@ -160,7 +160,7 @@ class ClearPlatformNode(Node):
         if target_in_range:
             self.is_attacking = True
             self.attack_end_time = current_time + controller.get_guassian(0.75, 0.01, 0.7)
-            controller.update_movement(None) 
+            # controller.update_movement(None) 
             controller.tap_key('f')
             
             # if jump_or_not:
@@ -343,7 +343,7 @@ class RopeUpNode(Node):
     """導航爬繩節點"""
     def __init__(self, target_rope_x, target_floor_y):
         self.target_rope_x = target_rope_x
-        self.target_floor_y = target_floor_y + 5 # 忽視平台Y軸誤差
+        self.target_floor_y = target_floor_y + 3 # 忽視平台Y軸誤差
         self.is_climbing = False # 是否正在爬繩狀態
         self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
         self.last_jump_time = 0 # 記錄起跳時間
