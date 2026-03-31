@@ -65,7 +65,7 @@ class MapleBot:
 
         self.root = Selector([
             BuffNode(self.buff_manager),
-            DynamicPatrolNode(["P_TOP", "P_MID_1", "P_MID_2", "P_MID_3", "P_MID_6"]) # 傳入巡邏迴圈
+            DynamicPatrolNode(["P_TOP", "P_MID_1", "P_MID_2", "P_MID_3"]) # 傳入巡邏迴圈
         ])
 
     def run(self):

@@ -322,7 +322,10 @@ class JumpToPlatformNode(Node):
             self.jump_end_time = current_time + 0.8 # 設定空中飛行的等待時間 (非阻塞)
         else:
             # 還沒到起跳點，繼續走
-            controller.update_movement("left" if distance > 0 else "right")
+            if distance > 0:
+                controller.update_movement("left")
+            else:
+                controller.update_movement("right")
 
         return NodeStatus.RUNNING
 
@@ -404,11 +407,7 @@ class RopeUpNode(Node):
         distance_to_rope = gps_px - self.target_rope_x
         current_time = time.time()
 
-        if self.prev_x is None or self.prev_y is None: # 理論上用不到的初始化
-            self.prev_x = gps_px
-            self.prev_y = gps_py
-            return NodeStatus.RUNNING
-
+        print(f"繩子距離: {distance_to_rope:.1f}，高度: {gps_py:.1f}，狀態: {'爬繩中' if self.is_climbing else '起跳中' if self.is_jumping else '尋找繩子'}")
         if self.is_climbing:
             if self.prev_x != gps_px and abs(gps_py - self.target_floor_y) > 1: # 只要還沒到達指定樓層時有水平移動 視為沒在爬繩
                 self.is_climbing = False
@@ -418,27 +417,30 @@ class RopeUpNode(Node):
                 if self.finish_counter >= 4:
                     controller.hold_key_end("up")
                     self.finish_counter = 0
+                    controller.sleep_gaussian(0.05, 0.01, 0.045)
+                    self.is_climbing = False
                     return NodeStatus.SUCCESS
             else:
                 self.finish_counter = 0
         else:
-            if distance_to_rope > 1:
+            if distance_to_rope >= 1:
                 controller.update_movement("left")  # 人在繩子右邊，往左走
-            elif distance_to_rope < -1:
+            elif distance_to_rope <= -1:
                 controller.update_movement("right") # 人在繩子左邊，往右走
             if not self.is_jumping:
                 if abs(distance_to_rope) <= 10:
                     controller.tap_key("space")
                     controller.hold_key_start("up")
-                    self.jump_end_time = current_time + 0.8
+                    self.jump_end_time = current_time + 2
                     self.is_jumping = True
             else:
                 if current_time > self.jump_end_time: # 如果超過一定時間沒有更新成爬繩狀態，重製起跳狀態
                     self.is_jumping = False
+                    controller.hold_key_end("up")
                 else:
-                    if gps_px == self.target_rope_x and gps_px == self.prev_x:
+                    if gps_px == self.target_rope_x:
                         self.is_climbing = True
-                        controller.update_movement(None)
+
         self.prev_y = gps_py
         self.prev_x = gps_px
         return NodeStatus.RUNNING
