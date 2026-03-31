@@ -47,10 +47,10 @@ class CombatTargeting:
         # 4. 判斷是否可以攻擊
         can_attack = distance_to_monster <= self.skill_range
         if can_attack and distance_to_monster <= self.safety_attack_range:
-            jump_or_not = False
+            use_jump_attack = False
         else:
-            jump_or_not = True
+            use_jump_attack = True
 
-        return can_attack, jump_or_not
+        return can_attack, use_jump_attack
     
     

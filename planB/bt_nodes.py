@@ -116,23 +116,17 @@ class ClearPlatformNode(Node):
         self.exit_x = exit_x
         self.is_attacking = False
         self.attack_end_time = 0
-
-        self.attack_range = 30 # 根據攻擊距離提早結束
+        self.attack_range = 30
         
-        # 決定初始清怪方向 (背對出口的方向)
+        self.phase = 1 # 1: 往遠離出口的方向清怪，2: 抵達盡頭後折返往出口方向清怪
         mid_x = (platform_info["x_min"] + platform_info["x_max"]) / 2
-        self.phase = 1
-        if self.exit_x > mid_x:
-            # 出口偏右，先往左清
-            self.direction = "left"
-            self.bound_x = platform_info["x_min"] + self.attack_range
-        else:
-            # 出口偏左，先往右清
-            self.direction = "right"
-            self.bound_x = platform_info["x_max"] - self.attack_range
-            
-        # 賦予動態邊界 (加入常態分佈，防外掛偵測)
-        self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2)
+        self.direction = "left" if self.exit_x > mid_x else "right" # 根據出口位置決定清怪初始方向
+
+        bound_x_left = platform_info["x_min"] + self.attack_range # 根據攻擊距離減少巡邏距離
+        bound_x_right = platform_info["x_max"] - self.attack_range
+
+        self.dynamic_bound_left = random.randint(bound_x_left - 2, bound_x_left + 2) # 賦予動態邊界 (加入常態分佈，防外掛偵測)
+        self.dynamic_bound_right = random.randint(bound_x_right - 2, bound_x_right + 2)
 
     def tick(self, context):
         controller = context.get("controller")
@@ -153,17 +147,17 @@ class ClearPlatformNode(Node):
         # ==========================================
         # 2. 戰鬥大腦判定
         # ==========================================
-        target_in_range, jump_or_not = combat.find_target_and_check_range(
+        target_in_range, use_jump_attack = combat.find_target_and_check_range(
             yolo_player, yolo_monsters, self.direction
         )
 
-        if target_in_range:
+        if target_in_range and not use_jump_attack:
             self.is_attacking = True
             self.attack_end_time = current_time + controller.get_guassian(0.75, 0.01, 0.7)
-            # controller.update_movement(None) 
+            controller.update_movement(None) 
             controller.tap_key('f')
             
-            # if jump_or_not:
+            # if use_jump_attack:
             #     print(f"⚔️ [{self.direction.upper()}] 前跳攻擊！")
             #     controller.jump_attack(self.direction, 'f', timming=0.01)
             # else:
@@ -177,24 +171,19 @@ class ClearPlatformNode(Node):
             controller.update_movement(self.direction) 
 
             # 檢查是否到達當前方向的動態邊界
-            if (self.direction == 'left' and gps_px <= self.dynamic_bound) or \
-               (self.direction == 'right' and gps_px >= self.dynamic_bound):
+            if (self.direction == "left" and gps_px <= self.dynamic_bound_left) or \
+               (self.direction == "right" and gps_px >= self.dynamic_bound_right):
                 
                 if self.phase == 1:
                     # 第一階段完成 (抵達遠離出口的盡頭)，準備折返！
                     print("🔄 抵達平台盡頭，開始折返清怪！")
                     self.phase = 2
                     self.direction = "right" if self.direction == "left" else "left"
-                    controller.update_movement(self.direction)
-                    
-                    # 將目標邊界設為另一端的盡頭
-                    self.bound_x = self.platform_info["x_max"] - self.attack_range if self.direction == "right" else self.platform_info["x_min"] + self.attack_range
-                    self.dynamic_bound = random.randint(self.bound_x - 2, self.bound_x + 2)
-                    
+                    controller.update_movement(self.direction)    
                 elif self.phase == 2:
                     # 雙向清怪完畢！停下腳步並結束任務
                     print("✅ 平台掃蕩完畢！")
-                    controller.update_movement(None)
+                    # controller.update_movement(None)
                     return NodeStatus.SUCCESS 
             
         return NodeStatus.RUNNING
@@ -288,11 +277,11 @@ class JumpDownNode(Node):
 class JumpToPlatformNode(Node):
     """水平跳躍節點 (支援向左或向右跳)"""
     def __init__(self, trigger_x, direction, target_platform):
-        self.trigger_x = random.randint(trigger_x - 3, trigger_x + 3)
+        self.trigger_x =trigger_x
         self.direction = direction
         self.target_platform = target_platform
         
-        self.has_jumped = False
+        self.is_jumping = False
         self.jump_end_time = 0
 
     def tick(self, context):
@@ -304,20 +293,18 @@ class JumpToPlatformNode(Node):
         current_platform = navigator.get_current_platform(gps_px, gps_py)
         current_time = time.time()
 
-        # 1. 如果已經成功抵達目標平台，提早結束！
+        # 如果已經成功抵達目標平台，提早結束
         if current_platform == self.target_platform:
-            controller.update_movement(None)
-            self.has_jumped = False
+            self.is_jumping = False
             return NodeStatus.SUCCESS
 
-        # 2. 如果已經起跳，處於空中滯留狀態
-        if self.has_jumped:
+        # 如果已經起跳，超過時間沒抵達目標平台視為失敗
+        if self.is_jumping:
             if current_time >= self.jump_end_time:
-                # 動畫時間結束，回傳 SUCCESS 交給大腦判定有沒有真正成功
-                return NodeStatus.SUCCESS 
+                self.is_jumping = False
             return NodeStatus.RUNNING
 
-        # 3. 走向起跳點 (容差值設為 3 像素，避免因為速度過快錯過)
+        # 判斷起跳位置
         distance = gps_px - self.trigger_x
         
         if abs(distance) <= 3:
@@ -331,7 +318,7 @@ class JumpToPlatformNode(Node):
             controller.tap_key("space")
             controller.hold_key_end(self.direction)
             
-            self.has_jumped = True
+            self.is_jumping = True
             self.jump_end_time = current_time + 0.8 # 設定空中飛行的等待時間 (非阻塞)
         else:
             # 還沒到起跳點，繼續走
@@ -339,15 +326,76 @@ class JumpToPlatformNode(Node):
 
         return NodeStatus.RUNNING
 
+# class RopeUpNode(Node):
+#     """導航爬繩節點"""
+#     def __init__(self, target_rope_x, target_floor_y):
+#         self.target_rope_x = target_rope_x
+#         self.target_floor_y = target_floor_y + 3 # 忽視平台Y軸誤差
+#         self.is_climbing = False # 是否正在爬繩狀態
+#         self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
+#         self.last_jump_time = 0 # 記錄起跳時間
+#         self.finish_counter = 0 # 紀錄爬完繩的等待狀態
+
+#     def tick(self, context):
+#         controller = context.get("controller")
+#         gps_px = context.get("gps_px")
+#         gps_py = context.get("gps_py")
+#         distance_to_rope = gps_px - self.target_rope_x
+#         current_time = time.time()
+
+#         # 如果抵達目標樓層，回傳成功
+#         if gps_py <= self.target_floor_y:
+#             controller.update_movement(None) # 爬過一定高度才放開左右以解決在離繩子一定範圍內失去方向時的原地跳躍
+#             if self.prev_y == gps_py:
+#                 self.finish_counter += 1
+#                 if self.finish_counter >= 4: # Y變動停止超過4次刷新 當作爬完繩子
+#                     controller.hold_key_end("up")
+#                     self.finish_counter = 0
+#                     self.is_climbing = False
+#                     controller.sleep_gaussian(0.05, 0.01, 0.045)
+#                     return NodeStatus.SUCCESS
+#             else:
+#                 self.finish_counter = 0
+
+#         # 找繩子並爬上去
+#         else:
+#             if abs(distance_to_rope) <= 10:
+#                 if not self.is_climbing:
+#                     controller.tap_key("space")
+#                     controller.hold_key_start("up")
+#                     self.is_climbing = True
+#                     self.last_jump_time = current_time
+#                 else:
+#                     if current_time - self.last_jump_time > 0.8:
+#                         # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
+#                         if  gps_py >= self.prev_y:
+#                             controller.hold_key_end("up")
+#                             self.is_climbing = False
+#             else:
+#                 # 如果離開了繩子範圍，重置爬繩狀態
+#                 if self.is_climbing:
+#                     controller.hold_key_end("up")
+#                     self.is_climbing = False
+
+#             if distance_to_rope > 1:
+#                 controller.update_movement("left")  # 人在繩子右邊，往左走
+#             elif distance_to_rope < -1:
+#                 controller.update_movement("right") # 人在繩子左邊，往右走
+#         self.prev_y = gps_py
+
+#         return NodeStatus.RUNNING
+    
 class RopeUpNode(Node):
     """導航爬繩節點"""
     def __init__(self, target_rope_x, target_floor_y):
         self.target_rope_x = target_rope_x
-        self.target_floor_y = target_floor_y + 3 # 忽視平台Y軸誤差
+        self.target_floor_y = target_floor_y
         self.is_climbing = False # 是否正在爬繩狀態
+        self.is_jumping = False # 是否正在起跳的狀態
         self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
-        self.last_jump_time = 0 # 記錄起跳時間
+        self.prev_x = None # 上一幀的 X 座標，用來檢測是否有在移動
         self.finish_counter = 0 # 紀錄爬完繩的等待狀態
+        self.jump_end_time = 0 # 記錄起跳時間
 
     def tick(self, context):
         controller = context.get("controller")
@@ -356,46 +404,43 @@ class RopeUpNode(Node):
         distance_to_rope = gps_px - self.target_rope_x
         current_time = time.time()
 
-        # 如果抵達目標樓層，回傳成功
-        if gps_py <= self.target_floor_y:
-            controller.update_movement(None) # 爬過一定高度才放開左右以解決在離繩子一定範圍內失去方向時的原地跳躍
-            if self.prev_y == gps_py:
+        if self.prev_x is None or self.prev_y is None: # 理論上用不到的初始化
+            self.prev_x = gps_px
+            self.prev_y = gps_py
+            return NodeStatus.RUNNING
+
+        if self.is_climbing:
+            if self.prev_x != gps_px and abs(gps_py - self.target_floor_y) > 1: # 只要還沒到達指定樓層時有水平移動 視為沒在爬繩
+                self.is_climbing = False
+                controller.hold_key_end("up")
+            if abs(gps_py - self.target_floor_y) <= 1:
                 self.finish_counter += 1
-                if self.finish_counter >= 4: # Y變動停止超過4次刷新 當作爬完繩子
+                if self.finish_counter >= 4:
                     controller.hold_key_end("up")
                     self.finish_counter = 0
-                    self.is_climbing = False
-                    controller.sleep_gaussian(0.05, 0.01, 0.045)
                     return NodeStatus.SUCCESS
             else:
                 self.finish_counter = 0
-
-        # 找繩子並爬上去
         else:
-            if abs(distance_to_rope) <= 10:
-                if not self.is_climbing:
-                    controller.tap_key("space")
-                    controller.hold_key_start("up")
-                    self.is_climbing = True
-                    self.last_jump_time = current_time
-                else:
-                    if current_time - self.last_jump_time > 0.8:
-                        # 如果已經在爬繩了，但 Y 座標沒有下降，重置爬繩狀態
-                        if  gps_py > self.prev_y:
-                            controller.hold_key_end("up")
-                            self.is_climbing = False
-            else:
-                # 如果離開了繩子範圍，重置爬繩狀態
-                if self.is_climbing:
-                    controller.hold_key_end("up")
-                    self.is_climbing = False
-
             if distance_to_rope > 1:
                 controller.update_movement("left")  # 人在繩子右邊，往左走
             elif distance_to_rope < -1:
                 controller.update_movement("right") # 人在繩子左邊，往右走
+            if not self.is_jumping:
+                if abs(distance_to_rope) <= 10:
+                    controller.tap_key("space")
+                    controller.hold_key_start("up")
+                    self.jump_end_time = current_time + 0.8
+                    self.is_jumping = True
+            else:
+                if current_time > self.jump_end_time: # 如果超過一定時間沒有更新成爬繩狀態，重製起跳狀態
+                    self.is_jumping = False
+                else:
+                    if gps_px == self.target_rope_x and gps_px == self.prev_x:
+                        self.is_climbing = True
+                        controller.update_movement(None)
         self.prev_y = gps_py
-
+        self.prev_x = gps_px
         return NodeStatus.RUNNING
     
 class DynamicPatrolNode(Node):
