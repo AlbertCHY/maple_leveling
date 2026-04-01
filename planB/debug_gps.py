@@ -9,7 +9,7 @@ class MinimapDebugger:
         # ==========================================
         self.region = (10, 160, 270, 250)  # (X, Y, W, H)
         # self.region = (10, 170, 310, 190)
-        self.lower_yellow = np.array([27, 200, 200])
+        self.lower_yellow = np.array([25, 200, 200])
         self.upper_yellow = np.array([30, 255, 255])
         
         self.sct = mss.mss()
@@ -26,7 +26,7 @@ class MinimapDebugger:
 
         while True:
             # 1. 擷取畫面
-            sct_img = self.sct.grab({"top": 22, "left": 0, "width": 2560, "height": 1392})
+            sct_img = self.sct.grab({"top": 32, "left": 0, "width": 2560, "height": 1392})
             frame = np.array(sct_img)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
 

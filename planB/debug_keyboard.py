@@ -35,8 +35,9 @@ class KeyVisualizer:
 
         # 按鍵網格佈局
         layout = {
-            'a': (1, 1), 's': (2, 0), 'd': (2, 1), 'f': (2, 2), 'g': (2, 3),
-            'space': (3, 0, 3), 'up': (4, 0), 'left': (4, 1), 'down': (4, 2), 'right': (4, 3)
+            'up': (1, 1), 'left': (2, 0), 'down': (2, 1), 'right': (2, 2), 
+            'a': (3, 0), 's': (3, 1), 'd': (3, 2), 'f': (3, 3), 'g': (3, 4), 
+            'space': (4, 0, 3)
         }
 
         for key, pos in layout.items():

@@ -246,7 +246,7 @@ class JumpDownNode(Node):
     """下跳節點"""
     def __init__(self, trigger_x, target_floor_y):
         self.trigger_x = random.randint(trigger_x - 3, trigger_x + 3)
-        self.target_floor_y = target_floor_y - 10 # 忽視平台Y軸誤差
+        self.target_floor_y = target_floor_y
 
     def tick(self, context):
         controller = context.get("controller")
@@ -254,7 +254,7 @@ class JumpDownNode(Node):
         gps_py = context.get("gps_py")
 
         # 如果已經到達目標樓層，重置狀態並回傳成功
-        if gps_py >= self.target_floor_y:
+        if gps_py >= self.target_floor_y - 5:
             return NodeStatus.SUCCESS
 
         distance = gps_px - self.trigger_x
@@ -309,7 +309,7 @@ class JumpToPlatformNode(Node):
         
         if abs(distance) <= 3:
             # 抵達起跳點，執行跳躍！
-            # controller.update_movement(None) # 先停下腳步
+            controller.update_movement(None) # 先停下腳步
             print(f"🦘 抵達起跳點 {self.trigger_x}，向 {self.direction} 跳躍！")
             
             # 模擬人類按鍵：按住方向鍵 -> 按跳 -> 鬆開方向鍵
@@ -418,9 +418,9 @@ class RopeUpNode(Node):
             else:
                 self.finish_counter = 0
         else:
-            if distance_to_rope >= 1:
+            if distance_to_rope >= 0:
                 controller.update_movement("left")  # 人在繩子右邊，往左走
-            elif distance_to_rope <= -1:
+            elif distance_to_rope < 0:
                 controller.update_movement("right") # 人在繩子左邊，往右走
             if not self.is_jumping:
                 if abs(distance_to_rope) <= 10:
@@ -433,8 +433,9 @@ class RopeUpNode(Node):
                     self.is_jumping = False
                     controller.hold_key_end("up")
                 else:
-                    if gps_px == self.target_rope_x and gps_py <= self.prev_y:
+                    if abs(gps_px - self.target_rope_x) <= 1 and gps_py <= self.prev_y:
                         self.is_climbing = True
+                        controller.update_movement(None)
 
         self.prev_y = gps_py
         self.prev_x = gps_px
