@@ -407,17 +407,12 @@ class RopeUpNode(Node):
         distance_to_rope = gps_px - self.target_rope_x
         current_time = time.time()
 
-        print(f"繩子距離: {distance_to_rope:.1f}，高度: {gps_py:.1f}，狀態: {'爬繩中' if self.is_climbing else '起跳中' if self.is_jumping else '尋找繩子'}")
         if self.is_climbing:
-            if self.prev_x != gps_px and abs(gps_py - self.target_floor_y) > 1: # 只要還沒到達指定樓層時有水平移動 視為沒在爬繩
-                self.is_climbing = False
-                controller.hold_key_end("up")
-            if abs(gps_py - self.target_floor_y) <= 1:
+            if self.target_floor_y - gps_py >= -1: # 爬到距離平台1以上開始完成程序
                 self.finish_counter += 1
-                if self.finish_counter >= 4:
+                if self.finish_counter >= 5: # 給予從容差範圍爬上平台的時間
                     controller.hold_key_end("up")
                     self.finish_counter = 0
-                    controller.sleep_gaussian(0.05, 0.01, 0.045)
                     self.is_climbing = False
                     return NodeStatus.SUCCESS
             else:
@@ -438,7 +433,7 @@ class RopeUpNode(Node):
                     self.is_jumping = False
                     controller.hold_key_end("up")
                 else:
-                    if gps_px == self.target_rope_x:
+                    if gps_px == self.target_rope_x and gps_py <= self.prev_y:
                         self.is_climbing = True
 
         self.prev_y = gps_py
