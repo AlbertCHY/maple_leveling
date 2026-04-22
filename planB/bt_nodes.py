@@ -394,11 +394,13 @@ class RopeUpNode(Node):
         self.target_rope_x = target_rope_x
         self.target_floor_y = target_floor_y
         self.is_climbing = False # 是否正在爬繩狀態
+        self.climbing_counter = 0 # 紀錄爬繩過程中 Y 座標沒有下降的幀數
         self.is_jumping = False # 是否正在起跳的狀態
         self.prev_y = None # 上一幀的 Y 座標，用來檢測是否有在爬繩
         self.prev_x = None # 上一幀的 X 座標，用來檢測是否有在移動
         self.finish_counter = 0 # 紀錄爬完繩的等待狀態
         self.jump_end_time = 0 # 記錄起跳時間
+        self.idle_counter = 0 # 全局紀錄發呆時間 防止卡死
 
     def tick(self, context):
         controller = context.get("controller")
@@ -406,6 +408,19 @@ class RopeUpNode(Node):
         gps_py = context.get("gps_py")
         distance_to_rope = gps_px - self.target_rope_x
         current_time = time.time()
+
+        if gps_px == self.prev_x and gps_py == self.prev_y:
+            self.idle_counter += 1
+        else:
+            self.idle_counter = 0
+
+        if self.idle_counter >= 180: # 如果大約三秒沒有任何移動 重製狀態
+            self.is_climbing = False
+            self.is_jumping = False
+            self.climbing_counter = 0
+            self.idle_counter = 0
+            controller.hold_key_end("up")
+            return NodeStatus.RUNNING
 
         if self.is_climbing:
             if self.target_floor_y - gps_py >= -1: # 爬到距離平台1以上開始完成程序
@@ -434,8 +449,13 @@ class RopeUpNode(Node):
                     controller.hold_key_end("up")
                 else:
                     if abs(gps_px - self.target_rope_x) <= 1 and gps_py <= self.prev_y:
-                        self.is_climbing = True
-                        controller.update_movement(None)
+                        self.climbing_counter += 1
+                        if self.climbing_counter >= 4:
+                            self.is_climbing = True
+                            controller.update_movement(None)
+                            self.climbing_counter = 0
+                    else:
+                        self.climbing_counter = 0
 
         self.prev_y = gps_py
         self.prev_x = gps_px
