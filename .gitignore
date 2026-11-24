@@ -1,0 +1,7 @@
+training_data
+__pycache__/
+yolo_dataset/
+roboflow_dataset/
+*.png
+*.pt
+*.pth
